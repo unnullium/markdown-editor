@@ -270,72 +270,102 @@ Enjoy writing markdown!
         }
 
         function parseMarkdown(text) {
-            let html = text;
+            const lines = text.split('\n');
+            const result = [];
+            let i = 0;
 
-            // Escape HTML
-            html = html.replace(/&/g, '&amp;')
-                       .replace(/</g, '&lt;')
-                       .replace(/>/g, '&gt;');
+            while (i < lines.length) {
+                const line = lines[i];
 
-            // Code blocks (before other processing)
-            html = html.replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>');
+                // Code block
+                if (line.startsWith('```')) {
+                    const codeLines = [];
+                    i++;
+                    while (i < lines.length && !lines[i].startsWith('```')) {
+                        codeLines.push(escapeHtml(lines[i]));
+                        i++;
+                    }
+                    result.push('<pre><code>' + codeLines.join('\n') + '</code></pre>');
+                    i++;
+                    continue;
+                }
 
-            // Inline code
-            html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+                // Unordered list
+                if (line.startsWith('- ')) {
+                    const items = [];
+                    while (i < lines.length && lines[i].startsWith('- ')) {
+                        items.push('<li>' + formatLine(lines[i].substring(2)) + '</li>');
+                        i++;
+                    }
+                    result.push('<ul>' + items.join('') + '</ul>');
+                    continue;
+                }
 
-            // Headers
-            html = html.replace(/^###### (.+)$/gm, '<h6>$1</h6>');
-            html = html.replace(/^##### (.+)$/gm, '<h5>$1</h5>');
-            html = html.replace(/^#### (.+)$/gm, '<h4>$1</h4>');
-            html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
-            html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
-            html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+                // Ordered list
+                if (/^\d+\. /.test(line)) {
+                    const items = [];
+                    while (i < lines.length && /^\d+\. /.test(lines[i])) {
+                        items.push('<li>' + formatLine(lines[i].replace(/^\d+\. /, '')) + '</li>');
+                        i++;
+                    }
+                    result.push('<ol>' + items.join('') + '</ol>');
+                    continue;
+                }
 
-            // Horizontal rule
-            html = html.replace(/^---$/gm, '<hr>');
+                // Headers
+                if (line.startsWith('#')) {
+                    const match = line.match(/^(#{1,6}) (.+)$/);
+                    if (match) {
+                        const level = match[1].length;
+                        result.push('<h' + level + '>' + formatLine(match[2]) + '</h' + level + '>');
+                        i++;
+                        continue;
+                    }
+                }
 
-            // Bold
-            html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+                // Horizontal rule
+                if (line === '---') {
+                    result.push('<hr>');
+                    i++;
+                    continue;
+                }
 
-            // Italic
-            html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+                // Blockquote
+                if (line.startsWith('> ')) {
+                    result.push('<blockquote>' + formatLine(line.substring(2)) + '</blockquote>');
+                    i++;
+                    continue;
+                }
 
-            // Strikethrough
-            html = html.replace(/~~(.+?)~~/g, '<del>$1</del>');
+                // Empty line
+                if (line.trim() === '') {
+                    result.push('');
+                    i++;
+                    continue;
+                }
 
-            // Links
-            html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
+                // Paragraph
+                result.push('<p>' + formatLine(line) + '</p>');
+                i++;
+            }
 
-            // Images
-            html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1">');
-
-            // Blockquotes
-            html = html.replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>');
-            html = html.replace(/<\/blockquote>\n<blockquote>/g, '\n');
-
-            // Unordered lists
-            html = html.replace(/^- (.+)$/gm, '<li>$1</li>');
-            html = html.replace(/(<li>.*<\/li>)\n(?!<li>)/g, '$1</ul>\n');
-            html = html.replace(/(?<!<\/ul>\n)(<li>)/g, '<ul>$1');
-
-            // Ordered lists
-            html = html.replace(/^\d+\. (.+)$/gm, '<oli>$1</oli>');
-            html = html.replace(/(<oli>.*<\/oli>)\n(?!<oli>)/g, '$1</ol>\n');
-            html = html.replace(/(?<!<\/ol>\n)(<oli>)/g, '<ol>$1');
-            html = html.replace(/<\/?oli>/g, function(match) {
-                return match === '<oli>' ? '<li>' : '</li>';
-            });
-
-            // Paragraphs
-            html = html.split('\n\n').map(block => {
-                if (block.trim() === '') return '';
-                if (block.match(/^<(h[1-6]|ul|ol|li|blockquote|pre|hr)/)) return block;
-                if (!block.match(/^<[a-z]/)) return '<p>' + block.replace(/\n/g, '<br>') + '</p>';
-                return block;
-            }).join('\n');
-
-            return html;
+            return result.join('\n');
         }
+
+        function escapeHtml(text) {
+            return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+
+        function formatLine(text) {
+            text = escapeHtml(text);
+            text = text.replace(/`([^`]+)`/g, '<code>$1</code>');
+            text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+            text = text.replace(/\*(.+?)\*/g, '<em>$1</em>');
+            text = text.replace(/~~(.+?)~~/g, '<del>$1</del>');
+            text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
+            return text;
+        }
+
     </script>
 </body>
 </html>
