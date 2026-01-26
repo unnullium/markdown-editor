@@ -270,71 +270,128 @@ Enjoy writing markdown!
         }
 
         function parseMarkdown(text) {
-            let html = text;
+            // Split into lines for processing
+            const lines = text.split('\n');
+            const result = [];
+            let inCodeBlock = false;
+            let inUnorderedList = false;
+            let inOrderedList = false;
 
-            // Escape HTML
-            html = html.replace(/&/g, '&amp;')
-                       .replace(/</g, '&lt;')
-                       .replace(/>/g, '&gt;');
+            for (let i = 0; i < lines.length; i++) {
+                let line = lines[i];
 
-            // Code blocks (before other processing)
-            html = html.replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>');
+                // Code block toggle
+                if (line.startsWith('```')) {
+                    if (inCodeBlock) {
+                        result.push('</code></pre>');
+                        inCodeBlock = false;
+                    } else {
+                        result.push('<pre><code>');
+                        inCodeBlock = true;
+                    }
+                    continue;
+                }
 
+                // Inside code block - escape and add as-is
+                if (inCodeBlock) {
+                    result.push(escapeHtml(line));
+                    continue;
+                }
+
+                // Escape HTML for non-code content
+                line = escapeHtml(line);
+
+                // Check for list items
+                const unorderedMatch = line.match(/^- (.+)$/);
+                const orderedMatch = line.match(/^\d+\. (.+)$/);
+
+                // Close lists if needed
+                if (!unorderedMatch && inUnorderedList) {
+                    result.push('</ul>');
+                    inUnorderedList = false;
+                }
+                if (!orderedMatch && inOrderedList) {
+                    result.push('</ol>');
+                    inOrderedList = false;
+                }
+
+                // Headers
+                if (line.match(/^###### (.+)$/)) {
+                    result.push(line.replace(/^###### (.+)$/, '<h6>$1</h6>'));
+                } else if (line.match(/^##### (.+)$/)) {
+                    result.push(line.replace(/^##### (.+)$/, '<h5>$1</h5>'));
+                } else if (line.match(/^#### (.+)$/)) {
+                    result.push(line.replace(/^#### (.+)$/, '<h4>$1</h4>'));
+                } else if (line.match(/^### (.+)$/)) {
+                    result.push(line.replace(/^### (.+)$/, '<h3>$1</h3>'));
+                } else if (line.match(/^## (.+)$/)) {
+                    result.push(line.replace(/^## (.+)$/, '<h2>$1</h2>'));
+                } else if (line.match(/^# (.+)$/)) {
+                    result.push(line.replace(/^# (.+)$/, '<h1>$1</h1>'));
+                }
+                // Horizontal rule
+                else if (line === '---') {
+                    result.push('<hr>');
+                }
+                // Blockquote
+                else if (line.match(/^&gt; (.+)$/)) {
+                    result.push(line.replace(/^&gt; (.+)$/, '<blockquote>$1</blockquote>'));
+                }
+                // Unordered list
+                else if (unorderedMatch) {
+                    if (!inUnorderedList) {
+                        result.push('<ul>');
+                        inUnorderedList = true;
+                    }
+                    result.push('<li>' + formatInline(unorderedMatch[1]) + '</li>');
+                }
+                // Ordered list
+                else if (orderedMatch) {
+                    if (!inOrderedList) {
+                        result.push('<ol>');
+                        inOrderedList = true;
+                    }
+                    result.push('<li>' + formatInline(orderedMatch[1]) + '</li>');
+                }
+                // Empty line
+                else if (line.trim() === '') {
+                    result.push('');
+                }
+                // Paragraph
+                else {
+                    result.push('<p>' + formatInline(line) + '</p>');
+                }
+            }
+
+            // Close any open lists
+            if (inUnorderedList) result.push('</ul>');
+            if (inOrderedList) result.push('</ol>');
+            if (inCodeBlock) result.push('</code></pre>');
+
+            return result.join('\n');
+        }
+
+        function escapeHtml(text) {
+            return text
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+        }
+
+        function formatInline(text) {
             // Inline code
-            html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
-
-            // Headers
-            html = html.replace(/^###### (.+)$/gm, '<h6>$1</h6>');
-            html = html.replace(/^##### (.+)$/gm, '<h5>$1</h5>');
-            html = html.replace(/^#### (.+)$/gm, '<h4>$1</h4>');
-            html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
-            html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
-            html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
-
-            // Horizontal rule
-            html = html.replace(/^---$/gm, '<hr>');
-
+            text = text.replace(/`([^`]+)`/g, '<code>$1</code>');
             // Bold
-            html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-
+            text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
             // Italic
-            html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
-
+            text = text.replace(/\*(.+?)\*/g, '<em>$1</em>');
             // Strikethrough
-            html = html.replace(/~~(.+?)~~/g, '<del>$1</del>');
-
+            text = text.replace(/~~(.+?)~~/g, '<del>$1</del>');
             // Links
-            html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
-
+            text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
             // Images
-            html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1">');
-
-            // Blockquotes
-            html = html.replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>');
-            html = html.replace(/<\/blockquote>\n<blockquote>/g, '\n');
-
-            // Unordered lists
-            html = html.replace(/^- (.+)$/gm, '<li>$1</li>');
-            html = html.replace(/(<li>.*<\/li>)\n(?!<li>)/g, '$1</ul>\n');
-            html = html.replace(/(?<!<\/ul>\n)(<li>)/g, '<ul>$1');
-
-            // Ordered lists
-            html = html.replace(/^\d+\. (.+)$/gm, '<oli>$1</oli>');
-            html = html.replace(/(<oli>.*<\/oli>)\n(?!<oli>)/g, '$1</ol>\n');
-            html = html.replace(/(?<!<\/ol>\n)(<oli>)/g, '<ol>$1');
-            html = html.replace(/<\/?oli>/g, function(match) {
-                return match === '<oli>' ? '<li>' : '</li>';
-            });
-
-            // Paragraphs
-            html = html.split('\n\n').map(block => {
-                if (block.trim() === '') return '';
-                if (block.match(/^<(h[1-6]|ul|ol|li|blockquote|pre|hr)/)) return block;
-                if (!block.match(/^<[a-z]/)) return '<p>' + block.replace(/\n/g, '<br>') + '</p>';
-                return block;
-            }).join('\n');
-
-            return html;
+            text = text.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1">');
+            return text;
         }
     </script>
 </body>
