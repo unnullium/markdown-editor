@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Markdown Editor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #f5f5f5;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            color: #333;
+            font-size: 24px;
+        }
+
+        .mode-toggle {
+            display: flex;
+            gap: 10px;
+        }
+
+        .mode-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        .mode-btn.active {
+            background-color: #4a90d9;
+            color: white;
+        }
+
+        .mode-btn:not(.active) {
+            background-color: #e0e0e0;
+            color: #666;
+        }
+
+        .mode-btn:hover:not(.active) {
+            background-color: #d0d0d0;
+        }
+
+        .editor-container {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        #editor {
+            width: 100%;
+            min-height: 500px;
+            padding: 20px;
+            border: none;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            resize: vertical;
+            outline: none;
+        }
+
+        #preview {
+            padding: 20px;
+            min-height: 500px;
+            line-height: 1.8;
+            display: none;
+        }
+
+        #preview h1 { font-size: 2em; margin: 0.67em 0; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
+        #preview h2 { font-size: 1.5em; margin: 0.75em 0; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
+        #preview h3 { font-size: 1.25em; margin: 0.83em 0; }
+        #preview h4 { font-size: 1em; margin: 1em 0; }
+        #preview h5 { font-size: 0.875em; margin: 1.17em 0; }
+        #preview h6 { font-size: 0.85em; margin: 1.33em 0; color: #666; }
+
+        #preview p {
+            margin: 1em 0;
+        }
+
+        #preview code {
+            background-color: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 0.9em;
+        }
+
+        #preview pre {
+            background-color: #f4f4f4;
+            padding: 16px;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin: 1em 0;
+        }
+
+        #preview pre code {
+            padding: 0;
+            background: none;
+        }
+
+        #preview blockquote {
+            border-left: 4px solid #ddd;
+            padding-left: 16px;
+            margin: 1em 0;
+            color: #666;
+        }
+
+        #preview ul, #preview ol {
+            margin: 1em 0;
+            padding-left: 2em;
+        }
+
+        #preview li {
+            margin: 0.5em 0;
+        }
+
+        #preview a {
+            color: #4a90d9;
+            text-decoration: none;
+        }
+
+        #preview a:hover {
+            text-decoration: underline;
+        }
+
+        #preview hr {
+            border: none;
+            border-top: 2px solid #eee;
+            margin: 2em 0;
+        }
+
+        #preview img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        #preview table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 1em 0;
+        }
+
+        #preview th, #preview td {
+            border: 1px solid #ddd;
+            padding: 8px 12px;
+            text-align: left;
+        }
+
+        #preview th {
+            background-color: #f4f4f4;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Markdown Editor</h1>
+            <div class="mode-toggle">
+                <button class="mode-btn active" id="editBtn" onclick="switchMode('edit')">Edit</button>
+                <button class="mode-btn" id="previewBtn" onclick="switchMode('preview')">Preview</button>
+            </div>
+        </header>
+
+        <div class="editor-container">
+            <textarea id="editor" placeholder="Write your markdown here..."></textarea>
+            <div id="preview"></div>
+        </div>
+    </div>
+
+    <script>
+        const editor = document.getElementById('editor');
+        const preview = document.getElementById('preview');
+        const editBtn = document.getElementById('editBtn');
+        const previewBtn = document.getElementById('previewBtn');
+
+        // Sample markdown content
+        editor.value = `# Welcome to Markdown Editor
+
+This is a simple markdown editor with **edit** and **preview** modes.
+
+## Features
+
+- Write markdown in edit mode
+- See rendered HTML in preview mode
+- Simple and clean interface
+
+## Supported Syntax
+
+### Text Formatting
+
+**Bold text** and *italic text* and ~~strikethrough~~
+
+### Lists
+
+1. First item
+2. Second item
+3. Third item
+
+- Unordered item
+- Another item
+
+### Code
+
+Inline \`code\` example.
+
+\`\`\`
+// Code block
+function hello() {
+    console.log("Hello, World!");
+}
+\`\`\`
+
+### Blockquote
+
+> This is a blockquote.
+> It can span multiple lines.
+
+### Links and Images
+
+[Link example](https://example.com)
+
+### Horizontal Rule
+
+---
+
+Enjoy writing markdown!
+`;
+
+        function switchMode(mode) {
+            if (mode === 'edit') {
+                editor.classList.remove('hidden');
+                preview.style.display = 'none';
+                editBtn.classList.add('active');
+                previewBtn.classList.remove('active');
+            } else {
+                editor.classList.add('hidden');
+                preview.style.display = 'block';
+                preview.innerHTML = parseMarkdown(editor.value);
+                editBtn.classList.remove('active');
+                previewBtn.classList.add('active');
+            }
+        }
+
+        function parseMarkdown(text) {
+            let html = text;
+
+            // Escape HTML
+            html = html.replace(/&/g, '&amp;')
+                       .replace(/</g, '&lt;')
+                       .replace(/>/g, '&gt;');
+
+            // Code blocks (before other processing)
+            html = html.replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>');
+
+            // Inline code
+            html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+            // Headers
+            html = html.replace(/^###### (.+)$/gm, '<h6>$1</h6>');
+            html = html.replace(/^##### (.+)$/gm, '<h5>$1</h5>');
+            html = html.replace(/^#### (.+)$/gm, '<h4>$1</h4>');
+            html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+            html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+            html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+
+            // Horizontal rule
+            html = html.replace(/^---$/gm, '<hr>');
+
+            // Bold
+            html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+
+            // Italic
+            html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+
+            // Strikethrough
+            html = html.replace(/~~(.+?)~~/g, '<del>$1</del>');
+
+            // Links
+            html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
+
+            // Images
+            html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1">');
+
+            // Blockquotes
+            html = html.replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>');
+            html = html.replace(/<\/blockquote>\n<blockquote>/g, '\n');
+
+            // Unordered lists
+            html = html.replace(/^- (.+)$/gm, '<li>$1</li>');
+            html = html.replace(/(<li>.*<\/li>)\n(?!<li>)/g, '$1</ul>\n');
+            html = html.replace(/(?<!<\/ul>\n)(<li>)/g, '<ul>$1');
+
+            // Ordered lists
+            html = html.replace(/^\d+\. (.+)$/gm, '<oli>$1</oli>');
+            html = html.replace(/(<oli>.*<\/oli>)\n(?!<oli>)/g, '$1</ol>\n');
+            html = html.replace(/(?<!<\/ol>\n)(<oli>)/g, '<ol>$1');
+            html = html.replace(/<\/?oli>/g, function(match) {
+                return match === '<oli>' ? '<li>' : '</li>';
+            });
+
+            // Paragraphs
+            html = html.split('\n\n').map(block => {
+                if (block.trim() === '') return '';
+                if (block.match(/^<(h[1-6]|ul|ol|li|blockquote|pre|hr)/)) return block;
+                if (!block.match(/^<[a-z]/)) return '<p>' + block.replace(/\n/g, '<br>') + '</p>';
+                return block;
+            }).join('\n');
+
+            return html;
+        }
+    </script>
+</body>
+</html>
