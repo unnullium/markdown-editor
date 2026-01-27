@@ -837,23 +837,21 @@ Enjoy writing!`
                     continue;
                 }
 
-                if (line.startsWith('- ')) {
-                    const items = [];
-                    while (i < lines.length && lines[i].startsWith('- ')) {
-                        items.push('<li>' + formatLine(lines[i].substring(2)) + '</li>');
+                // Unordered list with nesting support
+                if (/^(\t|  )*- /.test(line)) {
+                    result.push(parseList(lines, i, 'ul'));
+                    while (i < lines.length && /^(\t|  )*- /.test(lines[i])) {
                         i++;
                     }
-                    result.push('<ul>' + items.join('') + '</ul>');
                     continue;
                 }
 
-                if (/^\d+\. /.test(line)) {
-                    const items = [];
-                    while (i < lines.length && /^\d+\. /.test(lines[i])) {
-                        items.push('<li>' + formatLine(lines[i].replace(/^\d+\. /, '')) + '</li>');
+                // Ordered list with nesting support
+                if (/^(\t|  )*\d+\. /.test(line)) {
+                    result.push(parseList(lines, i, 'ol'));
+                    while (i < lines.length && /^(\t|  )*\d+\. /.test(lines[i])) {
                         i++;
                     }
-                    result.push('<ol>' + items.join('') + '</ol>');
                     continue;
                 }
 
@@ -890,6 +888,118 @@ Enjoy writing!`
             }
 
             return result.join('\n');
+        }
+
+        function parseList(lines, startIndex, listType) {
+            const getIndentLevel = (line) => {
+                const match = line.match(/^(\t|  )*/);
+                if (!match) return 0;
+                const indent = match[0];
+                // Count tabs as 1, every 2 spaces as 1
+                return (indent.match(/\t/g) || []).length + Math.floor((indent.match(/  /g) || []).length);
+            };
+
+            const getContent = (line) => {
+                if (listType === 'ul') {
+                    return line.replace(/^(\t|  )*- /, '');
+                } else {
+                    return line.replace(/^(\t|  )*\d+\. /, '');
+                }
+            };
+
+            const isListItem = (line) => {
+                if (listType === 'ul') {
+                    return /^(\t|  )*- /.test(line);
+                } else {
+                    return /^(\t|  )*\d+\. /.test(line);
+                }
+            };
+
+            let result = '<' + listType + '>';
+            let currentIndent = getIndentLevel(lines[startIndex]);
+            let i = startIndex;
+
+            while (i < lines.length && isListItem(lines[i])) {
+                const line = lines[i];
+                const indent = getIndentLevel(line);
+
+                if (indent === currentIndent) {
+                    result += '<li>' + formatLine(getContent(line));
+                    // Check if next line is deeper nested
+                    if (i + 1 < lines.length && isListItem(lines[i + 1]) && getIndentLevel(lines[i + 1]) > indent) {
+                        i++;
+                        const nestedResult = parseListNested(lines, i, listType, indent + 1);
+                        result += nestedResult.html;
+                        i = nestedResult.endIndex;
+                    } else {
+                        i++;
+                    }
+                    result += '</li>';
+                } else if (indent > currentIndent) {
+                    // Deeper nesting handled above
+                    i++;
+                } else {
+                    // Less indent, end this list level
+                    break;
+                }
+            }
+
+            result += '</' + listType + '>';
+            return result;
+        }
+
+        function parseListNested(lines, startIndex, listType, expectedIndent) {
+            const getIndentLevel = (line) => {
+                const match = line.match(/^(\t|  )*/);
+                if (!match) return 0;
+                const indent = match[0];
+                return (indent.match(/\t/g) || []).length + Math.floor((indent.match(/  /g) || []).length);
+            };
+
+            const getContent = (line) => {
+                if (listType === 'ul') {
+                    return line.replace(/^(\t|  )*- /, '');
+                } else {
+                    return line.replace(/^(\t|  )*\d+\. /, '');
+                }
+            };
+
+            const isListItem = (line) => {
+                if (listType === 'ul') {
+                    return /^(\t|  )*- /.test(line);
+                } else {
+                    return /^(\t|  )*\d+\. /.test(line);
+                }
+            };
+
+            let result = '<' + listType + '>';
+            let i = startIndex;
+
+            while (i < lines.length && isListItem(lines[i])) {
+                const line = lines[i];
+                const indent = getIndentLevel(line);
+
+                if (indent === expectedIndent) {
+                    result += '<li>' + formatLine(getContent(line));
+                    // Check if next line is deeper nested
+                    if (i + 1 < lines.length && isListItem(lines[i + 1]) && getIndentLevel(lines[i + 1]) > indent) {
+                        i++;
+                        const nestedResult = parseListNested(lines, i, listType, indent + 1);
+                        result += nestedResult.html;
+                        i = nestedResult.endIndex;
+                    } else {
+                        i++;
+                    }
+                    result += '</li>';
+                } else if (indent < expectedIndent) {
+                    break;
+                } else {
+                    i++;
+                }
+            }
+
+            result += '</' + listType + '>';
+            return { html: result, endIndex: i };
         }
 
         function escapeHtml(text) {
