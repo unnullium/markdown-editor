@@ -101,24 +101,6 @@
             white-space: nowrap;
         }
 
-        .tree-item .delete-btn {
-            opacity: 0;
-            background: none;
-            border: none;
-            color: #888;
-            cursor: pointer;
-            padding: 2px 5px;
-            font-size: 12px;
-        }
-
-        .tree-item:hover .delete-btn {
-            opacity: 1;
-        }
-
-        .tree-item .delete-btn:hover {
-            color: #ff6b6b;
-        }
-
         .folder-children {
             padding-left: 15px;
         }
@@ -284,6 +266,48 @@
             background-color: #e0e0e0;
             color: #333;
         }
+
+        /* Context Menu */
+        .context-menu {
+            display: none;
+            position: fixed;
+            background: #2d2d2d;
+            border: 1px solid #3d3d3d;
+            border-radius: 6px;
+            padding: 5px 0;
+            min-width: 150px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            z-index: 2000;
+        }
+
+        .context-menu.show {
+            display: block;
+        }
+
+        .context-menu-item {
+            padding: 8px 15px;
+            color: #ccc;
+            font-size: 13px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .context-menu-item:hover {
+            background-color: #094771;
+            color: white;
+        }
+
+        .context-menu-item.danger:hover {
+            background-color: #c0392b;
+        }
+
+        .context-menu-separator {
+            height: 1px;
+            background-color: #3d3d3d;
+            margin: 5px 0;
+        }
     </style>
 </head>
 <body>
@@ -313,6 +337,14 @@
         </div>
     </div>
 
+    <!-- Context Menu -->
+    <div class="context-menu" id="contextMenu">
+        <div class="context-menu-item" onclick="renameItem()">Rename</div>
+        <div class="context-menu-item" onclick="duplicateItem()">Duplicate</div>
+        <div class="context-menu-separator"></div>
+        <div class="context-menu-item danger" onclick="deleteItemFromMenu()">Delete</div>
+    </div>
+
     <!-- Modal -->
     <div class="modal" id="modal">
         <div class="modal-content">
@@ -335,10 +367,13 @@
         const modal = document.getElementById('modal');
         const modalTitle = document.getElementById('modalTitle');
         const modalInput = document.getElementById('modalInput');
+        const contextMenu = document.getElementById('contextMenu');
 
         let fileSystem = {};
         let currentFile = null;
         let modalType = 'file';
+        let modalAction = 'create';
+        let contextMenuTarget = null;
 
         // Initialize
         function init() {
@@ -401,10 +436,11 @@ Enjoy writing!`
                 const fullPath = path ? `${path}/${name}` : name;
                 const div = document.createElement('div');
                 div.className = `tree-item ${item.type}${currentFile === fullPath ? ' active' : ''}`;
+                div.dataset.path = fullPath;
+                div.dataset.type = item.type;
                 div.innerHTML = `
                     <span class="icon">${item.type === 'folder' ? '&#128193;' : '&#128196;'}</span>
                     <span class="name">${name}</span>
-                    <button class="delete-btn" onclick="event.stopPropagation(); deleteItem('${fullPath}')">&#10005;</button>
                 `;
 
                 if (item.type === 'file') {
@@ -412,6 +448,8 @@ Enjoy writing!`
                 } else {
                     div.onclick = () => toggleFolder(div);
                 }
+
+                div.oncontextmenu = (e) => showContextMenu(e, fullPath, item.type);
 
                 container.appendChild(div);
 
@@ -464,13 +502,11 @@ Enjoy writing!`
         }
 
         function deleteItem(path) {
-            if (!confirm(`Delete "${path}"?`)) return;
-
             const item = getItem(path);
             if (item) {
                 delete item.container[item.name];
                 saveFileSystem();
-                if (currentFile === path) {
+                if (currentFile === path || (currentFile && currentFile.startsWith(path + '/'))) {
                     currentFile = null;
                     editor.value = '';
                     currentFileNameEl.textContent = 'No file selected';
@@ -479,8 +515,100 @@ Enjoy writing!`
             }
         }
 
+        // Context Menu
+        function showContextMenu(e, path, type) {
+            e.preventDefault();
+            e.stopPropagation();
+            contextMenuTarget = { path, type };
+
+            contextMenu.style.left = e.clientX + 'px';
+            contextMenu.style.top = e.clientY + 'px';
+            contextMenu.classList.add('show');
+        }
+
+        function hideContextMenu() {
+            contextMenu.classList.remove('show');
+            contextMenuTarget = null;
+        }
+
+        document.addEventListener('click', hideContextMenu);
+        document.addEventListener('contextmenu', (e) => {
+            if (!e.target.closest('.tree-item')) {
+                hideContextMenu();
+            }
+        });
+
+        function renameItem() {
+            if (!contextMenuTarget) return;
+            hideContextMenu();
+
+            const { path, type } = contextMenuTarget;
+            const item = getItem(path);
+            if (!item) return;
+
+            modalAction = 'rename';
+            modalType = type;
+            modalTitle.textContent = 'Rename';
+            modalInput.value = item.name;
+            modalInput.placeholder = 'Enter new name...';
+            modal.classList.add('show');
+            modalInput.focus();
+            modalInput.select();
+        }
+
+        function duplicateItem() {
+            if (!contextMenuTarget) return;
+            hideContextMenu();
+
+            const { path, type } = contextMenuTarget;
+            const item = getItem(path);
+            if (!item || !item.container[item.name]) return;
+
+            const original = item.container[item.name];
+            let newName = item.name;
+
+            // Generate unique name
+            if (type === 'file') {
+                const ext = newName.includes('.') ? '.' + newName.split('.').pop() : '';
+                const baseName = ext ? newName.slice(0, -ext.length) : newName;
+                let counter = 1;
+                while (item.container[newName]) {
+                    newName = `${baseName} (${counter})${ext}`;
+                    counter++;
+                }
+            } else {
+                let counter = 1;
+                while (item.container[newName]) {
+                    newName = `${item.name} (${counter})`;
+                    counter++;
+                }
+            }
+
+            // Deep copy the item
+            item.container[newName] = JSON.parse(JSON.stringify(original));
+            saveFileSystem();
+            renderFileTree();
+
+            if (type === 'file') {
+                const parentPath = path.includes('/') ? path.substring(0, path.lastIndexOf('/')) : '';
+                const newPath = parentPath ? `${parentPath}/${newName}` : newName;
+                openFile(newPath);
+            }
+        }
+
+        function deleteItemFromMenu() {
+            if (!contextMenuTarget) return;
+            hideContextMenu();
+
+            const { path } = contextMenuTarget;
+            if (confirm(`Delete "${path}"?`)) {
+                deleteItem(path);
+            }
+        }
+
         // Modal
         function showModal(type) {
+            modalAction = 'create';
             modalType = type;
             modalTitle.textContent = type === 'file' ? 'New File' : 'New Folder';
             modalInput.value = '';
@@ -491,11 +619,17 @@ Enjoy writing!`
 
         function hideModal() {
             modal.classList.remove('show');
+            modalAction = 'create';
         }
 
         function confirmModal() {
             let name = modalInput.value.trim();
             if (!name) return;
+
+            if (modalAction === 'rename') {
+                confirmRename(name);
+                return;
+            }
 
             if (modalType === 'file' && !name.includes('.')) {
                 name += '.md';
@@ -517,6 +651,49 @@ Enjoy writing!`
                 renderFileTree();
             }
 
+            hideModal();
+        }
+
+        function confirmRename(newName) {
+            if (!contextMenuTarget) {
+                hideModal();
+                return;
+            }
+
+            const { path, type } = contextMenuTarget;
+            const item = getItem(path);
+            if (!item) {
+                hideModal();
+                return;
+            }
+
+            if (type === 'file' && !newName.includes('.')) {
+                newName += '.md';
+            }
+
+            if (newName === item.name) {
+                hideModal();
+                return;
+            }
+
+            if (item.container[newName]) {
+                alert('Item already exists');
+                return;
+            }
+
+            // Move item to new name
+            item.container[newName] = item.container[item.name];
+            delete item.container[item.name];
+            saveFileSystem();
+
+            // Update currentFile if renamed
+            if (currentFile === path) {
+                const parentPath = path.includes('/') ? path.substring(0, path.lastIndexOf('/')) : '';
+                currentFile = parentPath ? `${parentPath}/${newName}` : newName;
+                currentFileNameEl.textContent = currentFile;
+            }
+
+            renderFileTree();
             hideModal();
         }
 
