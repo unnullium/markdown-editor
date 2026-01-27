@@ -402,16 +402,16 @@
             <div class="header-actions">
                 <button class="copy-btn" id="copyBtn" onclick="copyToClipboard()">Copy</button>
                 <div class="mode-toggle">
-                    <button class="mode-btn active" id="editBtn" onclick="switchMode('edit')">Edit</button>
-                    <button class="mode-btn" id="splitBtn" onclick="switchMode('split')">Split</button>
+                    <button class="mode-btn" id="editBtn" onclick="switchMode('edit')">Edit</button>
+                    <button class="mode-btn active" id="splitBtn" onclick="switchMode('split')">Split</button>
                     <button class="mode-btn" id="previewBtn" onclick="switchMode('preview')">Preview</button>
                 </div>
             </div>
         </header>
 
-        <div class="editor-container">
+        <div class="editor-container split">
             <textarea id="editor" placeholder="Select a file or create a new one..."></textarea>
-            <div id="preview"></div>
+            <div id="preview" style="display: block;"></div>
         </div>
     </div>
 
@@ -590,7 +590,7 @@ Enjoy writing!`
                 currentFile = path;
                 editor.value = item.container[item.name].content || '';
                 currentFileNameEl.textContent = path;
-                switchMode('edit');
+                switchMode('split');
                 renderFileTree();
             }
         }
