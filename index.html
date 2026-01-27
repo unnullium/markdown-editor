@@ -165,6 +165,18 @@
         .mode-toggle {
             display: flex;
             gap: 10px;
+            align-items: center;
+        }
+
+        .toggle-group {
+            display: flex;
+            background-color: #e0e0e0;
+            border-radius: 6px;
+            padding: 2px;
+        }
+
+        .toggle-group .mode-btn {
+            border-radius: 4px;
         }
 
         .mode-btn {
@@ -183,12 +195,21 @@
         }
 
         .mode-btn:not(.active) {
-            background-color: #e0e0e0;
+            background-color: transparent;
             color: #666;
         }
 
         .mode-btn:hover:not(.active) {
-            background-color: #d0d0d0;
+            background-color: rgba(0, 0, 0, 0.1);
+        }
+
+        .split-btn {
+            background-color: #e0e0e0;
+        }
+
+        .split-btn.active {
+            background-color: #4a90d9;
+            color: white;
         }
 
         .editor-container {
@@ -402,9 +423,11 @@
             <div class="header-actions">
                 <button class="copy-btn" id="copyBtn" onclick="copyToClipboard()">Copy</button>
                 <div class="mode-toggle">
-                    <button class="mode-btn" id="editBtn" onclick="switchMode('edit')">Edit</button>
-                    <button class="mode-btn active" id="splitBtn" onclick="switchMode('split')">Split</button>
-                    <button class="mode-btn" id="previewBtn" onclick="switchMode('preview')">Preview</button>
+                    <div class="toggle-group">
+                        <button class="mode-btn active" id="editBtn" onclick="switchMode('edit')">Edit</button>
+                        <button class="mode-btn" id="previewBtn" onclick="switchMode('preview')">Preview</button>
+                    </div>
+                    <button class="mode-btn split-btn active" id="splitBtn" onclick="toggleSplit()">Split</button>
                 </div>
             </div>
         </header>
@@ -590,7 +613,7 @@ Enjoy writing!`
                 currentFile = path;
                 editor.value = item.container[item.name].content || '';
                 currentFileNameEl.textContent = path;
-                switchMode('split');
+                updateView();
                 renderFileTree();
             }
         }
@@ -856,27 +879,51 @@ Enjoy writing!`
         });
 
         // Mode switching
+        let currentMode = 'edit';
+        let isSplitEnabled = true;
+
         function switchMode(mode) {
+            currentMode = mode;
             editBtn.classList.remove('active');
-            splitBtn.classList.remove('active');
             previewBtn.classList.remove('active');
-            editorContainer.classList.remove('split');
 
             if (mode === 'edit') {
-                editor.classList.remove('hidden');
-                preview.style.display = 'none';
                 editBtn.classList.add('active');
-            } else if (mode === 'split') {
+            } else {
+                previewBtn.classList.add('active');
+            }
+
+            updateView();
+        }
+
+        function toggleSplit() {
+            isSplitEnabled = !isSplitEnabled;
+            if (isSplitEnabled) {
+                splitBtn.classList.add('active');
+            } else {
+                splitBtn.classList.remove('active');
+            }
+            updateView();
+        }
+
+        function updateView() {
+            editorContainer.classList.remove('split');
+
+            if (isSplitEnabled) {
+                // Split mode: show both editor and preview
                 editor.classList.remove('hidden');
                 preview.style.display = 'block';
                 preview.innerHTML = parseMarkdown(editor.value);
                 editorContainer.classList.add('split');
-                splitBtn.classList.add('active');
+            } else if (currentMode === 'edit') {
+                // Edit only
+                editor.classList.remove('hidden');
+                preview.style.display = 'none';
             } else {
+                // Preview only
                 editor.classList.add('hidden');
                 preview.style.display = 'block';
                 preview.innerHTML = parseMarkdown(editor.value);
-                previewBtn.classList.add('active');
             }
         }
 
