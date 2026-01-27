@@ -199,6 +199,10 @@
             flex-direction: column;
         }
 
+        .editor-container.split {
+            flex-direction: row;
+        }
+
         #editor {
             flex: 1;
             width: 100%;
@@ -209,6 +213,12 @@
             line-height: 1.6;
             resize: none;
             outline: none;
+            tab-size: 4;
+        }
+
+        .editor-container.split #editor {
+            width: 50%;
+            border-right: 1px solid #e0e0e0;
         }
 
         #preview {
@@ -362,6 +372,7 @@
             <span class="file-name" id="currentFileName">No file selected</span>
             <div class="mode-toggle">
                 <button class="mode-btn active" id="editBtn" onclick="switchMode('edit')">Edit</button>
+                <button class="mode-btn" id="splitBtn" onclick="switchMode('split')">Split</button>
                 <button class="mode-btn" id="previewBtn" onclick="switchMode('preview')">Preview</button>
             </div>
         </header>
@@ -396,7 +407,9 @@
         const editor = document.getElementById('editor');
         const preview = document.getElementById('preview');
         const editBtn = document.getElementById('editBtn');
+        const splitBtn = document.getElementById('splitBtn');
         const previewBtn = document.getElementById('previewBtn');
+        const editorContainer = document.querySelector('.editor-container');
         const sidebar = document.getElementById('sidebar');
         const sidebarToggle = document.getElementById('sidebarToggle');
         const fileTree = document.getElementById('fileTree');
@@ -752,6 +765,7 @@ Enjoy writing!`
         });
 
         // Auto-save
+        // Auto-save and live preview update
         editor.addEventListener('input', () => {
             if (currentFile) {
                 const item = getItem(currentFile);
@@ -760,20 +774,45 @@ Enjoy writing!`
                     saveFileSystem();
                 }
             }
+            // Update preview in split mode
+            if (editorContainer.classList.contains('split')) {
+                preview.innerHTML = parseMarkdown(editor.value);
+            }
+        });
+
+        // Tab key support
+        editor.addEventListener('keydown', (e) => {
+            if (e.key === 'Tab') {
+                e.preventDefault();
+                const start = editor.selectionStart;
+                const end = editor.selectionEnd;
+                editor.value = editor.value.substring(0, start) + '\t' + editor.value.substring(end);
+                editor.selectionStart = editor.selectionEnd = start + 1;
+                editor.dispatchEvent(new Event('input'));
+            }
         });
 
         // Mode switching
         function switchMode(mode) {
+            editBtn.classList.remove('active');
+            splitBtn.classList.remove('active');
+            previewBtn.classList.remove('active');
+            editorContainer.classList.remove('split');
+
             if (mode === 'edit') {
                 editor.classList.remove('hidden');
                 preview.style.display = 'none';
                 editBtn.classList.add('active');
-                previewBtn.classList.remove('active');
+            } else if (mode === 'split') {
+                editor.classList.remove('hidden');
+                preview.style.display = 'block';
+                preview.innerHTML = parseMarkdown(editor.value);
+                editorContainer.classList.add('split');
+                splitBtn.classList.add('active');
             } else {
                 editor.classList.add('hidden');
                 preview.style.display = 'block';
                 preview.innerHTML = parseMarkdown(editor.value);
-                editBtn.classList.remove('active');
                 previewBtn.classList.add('active');
             }
         }
