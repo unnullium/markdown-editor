@@ -187,6 +187,18 @@
         .mode-toggle {
             display: flex;
             gap: 10px;
+            align-items: center;
+        }
+
+        .toggle-group {
+            display: flex;
+            background-color: #e0e0e0;
+            border-radius: 6px;
+            padding: 2px;
+        }
+
+        .toggle-group .mode-btn {
+            border-radius: 4px;
         }
 
         .mode-btn {
@@ -205,12 +217,21 @@
         }
 
         .mode-btn:not(.active) {
-            background-color: #e0e0e0;
+            background-color: transparent;
             color: #666;
         }
 
         .mode-btn:hover:not(.active) {
-            background-color: #d0d0d0;
+            background-color: rgba(0, 0, 0, 0.1);
+        }
+
+        .split-btn {
+            background-color: #e0e0e0;
+        }
+
+        .split-btn.active {
+            background-color: #4a90d9;
+            color: white;
         }
 
         .editor-container {
@@ -445,13 +466,19 @@
                     <button class="mode-btn" id="editBtn" onclick="switchMode('edit')">Edit</button>
                     <button class="mode-btn active" id="splitBtn" onclick="switchMode('split')">Split</button>
                     <button class="mode-btn" id="previewBtn" onclick="switchMode('preview')">Preview</button>
+                    <div class="toggle-group">
+                        <button class="mode-btn active" id="editBtn" onclick="switchMode('edit')">Edit</button>
+                        <button class="mode-btn" id="previewBtn" onclick="switchMode('preview')">Preview</button>
+                    </div>
+                    <button class="mode-btn split-btn active" id="splitBtn" onclick="toggleSplit()">Split</button>
                 </div>
             </div>
         </header>
 
         <div class="editor-container" id="editorContainer">
+        <div class="editor-container split">
             <textarea id="editor" placeholder="Select a file or create a new one..."></textarea>
-            <div id="preview"></div>
+            <div id="preview" style="display: block;"></div>
         </div>
     </div>
 
@@ -678,6 +705,13 @@
             } catch (err) {
                 console.error('Error creating folder:', err);
                 alert('Error creating folder: ' + err.message);
+            const item = getItem(path);
+            if (item && item.container[item.name] && item.container[item.name].type === 'file') {
+                currentFile = path;
+                editor.value = item.container[item.name].content || '';
+                currentFileNameEl.textContent = path;
+                updateView();
+                renderFileTree();
             }
         }
 
@@ -913,9 +947,12 @@
         });
 
         // Mode switching
+        let currentMode = 'edit';
+        let isSplitEnabled = true;
+
         function switchMode(mode) {
+            currentMode = mode;
             editBtn.classList.remove('active');
-            splitBtn.classList.remove('active');
             previewBtn.classList.remove('active');
             editorContainer.classList.remove('edit-only', 'preview-only');
 
@@ -929,6 +966,44 @@
             } else {
                 splitBtn.classList.add('active');
                 updatePreview();
+
+            if (mode === 'edit') {
+                editBtn.classList.add('active');
+            } else {
+                previewBtn.classList.add('active');
+            }
+
+            updateView();
+        }
+
+        function toggleSplit() {
+            isSplitEnabled = !isSplitEnabled;
+            if (isSplitEnabled) {
+                splitBtn.classList.add('active');
+            } else {
+                splitBtn.classList.remove('active');
+            }
+            updateView();
+        }
+
+        function updateView() {
+            editorContainer.classList.remove('split');
+
+            if (isSplitEnabled) {
+                // Split mode: show both editor and preview
+                editor.classList.remove('hidden');
+                preview.style.display = 'block';
+                preview.innerHTML = parseMarkdown(editor.value);
+                editorContainer.classList.add('split');
+            } else if (currentMode === 'edit') {
+                // Edit only
+                editor.classList.remove('hidden');
+                preview.style.display = 'none';
+            } else {
+                // Preview only
+                editor.classList.add('hidden');
+                preview.style.display = 'block';
+                preview.innerHTML = parseMarkdown(editor.value);
             }
         }
 
