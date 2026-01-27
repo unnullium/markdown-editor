@@ -95,6 +95,24 @@
             background-color: #3d3d3d;
         }
 
+        .open-folder-btn {
+            width: 100%;
+            padding: 10px 15px;
+            background-color: #094771;
+            border: none;
+            color: white;
+            cursor: pointer;
+            font-size: 13px;
+            text-align: left;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .open-folder-btn:hover {
+            background-color: #0a5a8f;
+        }
+
         .file-tree {
             flex: 1;
             overflow-y: auto;
@@ -137,6 +155,10 @@
 
         .folder-children {
             padding-left: 15px;
+        }
+
+        .folder-children.collapsed {
+            display: none;
         }
 
         /* Main content */
@@ -217,18 +239,15 @@
             background-color: white;
             overflow: hidden;
             display: flex;
-            flex-direction: column;
-        }
-
-        .editor-container.split {
             flex-direction: row;
         }
 
         #editor {
             flex: 1;
-            width: 100%;
+            width: 50%;
             padding: 20px;
             border: none;
+            border-right: 1px solid #e0e0e0;
             font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
             font-size: 14px;
             line-height: 1.6;
@@ -237,17 +256,29 @@
             tab-size: 4;
         }
 
-        .editor-container.split #editor {
-            width: 50%;
-            border-right: 1px solid #e0e0e0;
-        }
-
         #preview {
             flex: 1;
+            width: 50%;
             padding: 20px;
             line-height: 1.8;
-            display: none;
             overflow-y: auto;
+        }
+
+        .editor-container.edit-only #editor {
+            width: 100%;
+            border-right: none;
+        }
+
+        .editor-container.edit-only #preview {
+            display: none;
+        }
+
+        .editor-container.preview-only #editor {
+            display: none;
+        }
+
+        .editor-container.preview-only #preview {
+            width: 100%;
         }
 
         #preview h1 { font-size: 2em; margin: 0.67em 0; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
@@ -374,7 +405,7 @@
             margin: 5px 0;
         }
 
-        /* Copy button */
+        /* Header actions */
         .header-actions {
             display: flex;
             align-items: center;
@@ -402,17 +433,26 @@
             border-color: #27ae60;
             color: white;
         }
+
+        .unsupported-notice {
+            padding: 15px;
+            background-color: #3d3d3d;
+            color: #aaa;
+            font-size: 12px;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
     <div class="sidebar" id="sidebar">
         <div class="sidebar-header">
-            <h2>Files</h2>
+            <h2 id="folderName">Files</h2>
             <div class="sidebar-actions">
                 <button class="sidebar-btn" onclick="showModal('file')" title="New File">+File</button>
                 <button class="sidebar-btn" onclick="showModal('folder')" title="New Folder">+Folder</button>
             </div>
         </div>
+        <button class="open-folder-btn" onclick="openFolder()">&#128193; Open Folder</button>
         <div class="file-tree" id="fileTree"></div>
     </div>
     <button class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()" title="Toggle Sidebar">&#9664;</button>
@@ -423,6 +463,9 @@
             <div class="header-actions">
                 <button class="copy-btn" id="copyBtn" onclick="copyToClipboard()">Copy</button>
                 <div class="mode-toggle">
+                    <button class="mode-btn" id="editBtn" onclick="switchMode('edit')">Edit</button>
+                    <button class="mode-btn active" id="splitBtn" onclick="switchMode('split')">Split</button>
+                    <button class="mode-btn" id="previewBtn" onclick="switchMode('preview')">Preview</button>
                     <div class="toggle-group">
                         <button class="mode-btn active" id="editBtn" onclick="switchMode('edit')">Edit</button>
                         <button class="mode-btn" id="previewBtn" onclick="switchMode('preview')">Preview</button>
@@ -432,6 +475,7 @@
             </div>
         </header>
 
+        <div class="editor-container" id="editorContainer">
         <div class="editor-container split">
             <textarea id="editor" placeholder="Select a file or create a new one..."></textarea>
             <div id="preview" style="display: block;"></div>
@@ -464,21 +508,28 @@
         const editBtn = document.getElementById('editBtn');
         const splitBtn = document.getElementById('splitBtn');
         const previewBtn = document.getElementById('previewBtn');
-        const editorContainer = document.querySelector('.editor-container');
+        const editorContainer = document.getElementById('editorContainer');
         const sidebar = document.getElementById('sidebar');
         const sidebarToggle = document.getElementById('sidebarToggle');
         const fileTree = document.getElementById('fileTree');
         const currentFileNameEl = document.getElementById('currentFileName');
+        const folderNameEl = document.getElementById('folderName');
         const modal = document.getElementById('modal');
         const modalTitle = document.getElementById('modalTitle');
         const modalInput = document.getElementById('modalInput');
         const contextMenu = document.getElementById('contextMenu');
+        const copyBtn = document.getElementById('copyBtn');
 
-        let fileSystem = {};
-        let currentFile = null;
+        let rootDirHandle = null;
+        let currentFileHandle = null;
+        let currentFilePath = null;
         let modalType = 'file';
         let modalAction = 'create';
         let contextMenuTarget = null;
+        let useLocalFS = false;
+
+        // Check File System Access API support
+        const fsAccessSupported = 'showDirectoryPicker' in window;
 
         // Sidebar Toggle
         function toggleSidebar() {
@@ -492,122 +543,168 @@
             }
         }
 
-        // Initialize
-        function init() {
-            loadFileSystem();
-            if (Object.keys(fileSystem).length === 0) {
-                fileSystem = {
-                    'Welcome.md': {
-                        type: 'file',
-                        content: `# Welcome to Markdown Editor
-
-This is a simple markdown editor with **edit** and **preview** modes.
-
-## Features
-
-- Write markdown in edit mode
-- See rendered HTML in preview mode
-- File management in sidebar
-
-## Getting Started
-
-1. Create a new file using the **+File** button
-2. Create folders with **+Folder** button
-3. Click on a file to edit it
-4. Use Edit/Preview to toggle modes
-
-Enjoy writing!`
-                    }
-                };
-                saveFileSystem();
+        // Open local folder
+        async function openFolder() {
+            if (!fsAccessSupported) {
+                alert('Your browser does not support the File System Access API. Please use Chrome or Edge.');
+                return;
             }
-            renderFileTree();
+
+            try {
+                rootDirHandle = await window.showDirectoryPicker();
+                useLocalFS = true;
+                folderNameEl.textContent = rootDirHandle.name;
+                await renderLocalFileTree();
+            } catch (err) {
+                if (err.name !== 'AbortError') {
+                    console.error('Error opening folder:', err);
+                }
+            }
         }
 
-        // File System Operations
-        function loadFileSystem() {
-            const saved = localStorage.getItem('markdownEditorFS');
-            fileSystem = saved ? JSON.parse(saved) : {};
-        }
-
-        function saveFileSystem() {
-            localStorage.setItem('markdownEditorFS', JSON.stringify(fileSystem));
-        }
-
-        function renderFileTree() {
+        // Render local file tree
+        async function renderLocalFileTree() {
             fileTree.innerHTML = '';
-            renderItems(fileSystem, fileTree, '');
+            if (rootDirHandle) {
+                await renderLocalDir(rootDirHandle, fileTree, '');
+            }
         }
 
-        function renderItems(items, container, path) {
-            const sortedKeys = Object.keys(items).sort((a, b) => {
-                const aIsFolder = items[a].type === 'folder';
-                const bIsFolder = items[b].type === 'folder';
-                if (aIsFolder && !bIsFolder) return -1;
-                if (!aIsFolder && bIsFolder) return 1;
-                return a.localeCompare(b);
+        async function renderLocalDir(dirHandle, container, path) {
+            const entries = [];
+            for await (const entry of dirHandle.values()) {
+                entries.push(entry);
+            }
+
+            // Sort: folders first, then alphabetically
+            entries.sort((a, b) => {
+                if (a.kind !== b.kind) return a.kind === 'directory' ? -1 : 1;
+                return a.name.localeCompare(b.name);
             });
 
-            for (const name of sortedKeys) {
-                const item = items[name];
-                const fullPath = path ? `${path}/${name}` : name;
+            for (const entry of entries) {
+                // Skip hidden files
+                if (entry.name.startsWith('.')) continue;
+
+                const fullPath = path ? `${path}/${entry.name}` : entry.name;
                 const div = document.createElement('div');
-                div.className = `tree-item ${item.type}${currentFile === fullPath ? ' active' : ''}`;
+                div.className = `tree-item ${entry.kind === 'directory' ? 'folder' : 'file'}${currentFilePath === fullPath ? ' active' : ''}`;
                 div.dataset.path = fullPath;
-                div.dataset.type = item.type;
+                div.dataset.type = entry.kind;
                 div.innerHTML = `
-                    <span class="icon">${item.type === 'folder' ? '&#128193;' : '&#128196;'}</span>
-                    <span class="name">${name}</span>
+                    <span class="icon">${entry.kind === 'directory' ? '&#128193;' : '&#128196;'}</span>
+                    <span class="name">${entry.name}</span>
                 `;
 
-                if (item.type === 'file') {
-                    div.onclick = () => openFile(fullPath);
+                if (entry.kind === 'file') {
+                    div.onclick = () => openLocalFile(entry, fullPath);
                 } else {
-                    div.onclick = () => toggleFolder(div);
+                    div.onclick = () => toggleLocalFolder(div, entry, fullPath);
                 }
 
-                div.oncontextmenu = (e) => showContextMenu(e, fullPath, item.type);
+                div.oncontextmenu = (e) => showContextMenu(e, fullPath, entry.kind, entry);
 
                 container.appendChild(div);
 
-                if (item.type === 'folder' && item.children) {
+                if (entry.kind === 'directory') {
                     const childContainer = document.createElement('div');
-                    childContainer.className = 'folder-children';
+                    childContainer.className = 'folder-children collapsed';
                     container.appendChild(childContainer);
-                    renderItems(item.children, childContainer, fullPath);
                 }
             }
         }
 
-        function toggleFolder(element) {
+        async function toggleLocalFolder(element, dirHandle, path) {
             const children = element.nextElementSibling;
             if (children && children.classList.contains('folder-children')) {
-                children.style.display = children.style.display === 'none' ? 'block' : 'none';
-            }
-        }
-
-        function getItem(path) {
-            const parts = path.split('/');
-            let current = fileSystem;
-            for (let i = 0; i < parts.length - 1; i++) {
-                if (current[parts[i]] && current[parts[i]].type === 'folder') {
-                    current = current[parts[i]].children;
+                if (children.classList.contains('collapsed')) {
+                    children.classList.remove('collapsed');
+                    if (children.children.length === 0) {
+                        await renderLocalDir(dirHandle, children, path);
+                    }
                 } else {
-                    return null;
+                    children.classList.add('collapsed');
                 }
             }
-            return { container: current, name: parts[parts.length - 1] };
         }
 
-        function openFile(path) {
-            if (currentFile) {
-                const prev = getItem(currentFile);
-                if (prev && prev.container[prev.name]) {
-                    prev.container[prev.name].content = editor.value;
-                    saveFileSystem();
+        async function openLocalFile(fileHandle, path) {
+            try {
+                // Save current file first
+                if (currentFileHandle && editor.value) {
+                    await saveCurrentFile();
                 }
-            }
 
+                const file = await fileHandle.getFile();
+                const content = await file.text();
+                editor.value = content;
+                currentFileHandle = fileHandle;
+                currentFilePath = path;
+                currentFileNameEl.textContent = path;
+                updatePreview();
+
+                // Update active state
+                document.querySelectorAll('.tree-item').forEach(item => {
+                    item.classList.remove('active');
+                    if (item.dataset.path === path) {
+                        item.classList.add('active');
+                    }
+                });
+            } catch (err) {
+                console.error('Error opening file:', err);
+            }
+        }
+
+        async function saveCurrentFile() {
+            if (!currentFileHandle || !useLocalFS) return;
+
+            try {
+                const writable = await currentFileHandle.createWritable();
+                await writable.write(editor.value);
+                await writable.close();
+            } catch (err) {
+                console.error('Error saving file:', err);
+            }
+        }
+
+        async function createLocalFile(name, parentPath = '') {
+            if (!rootDirHandle) return;
+
+            try {
+                let targetDir = rootDirHandle;
+                if (parentPath) {
+                    const parts = parentPath.split('/');
+                    for (const part of parts) {
+                        targetDir = await targetDir.getDirectoryHandle(part);
+                    }
+                }
+
+                const fileHandle = await targetDir.getFileHandle(name, { create: true });
+                await renderLocalFileTree();
+                await openLocalFile(fileHandle, parentPath ? `${parentPath}/${name}` : name);
+            } catch (err) {
+                console.error('Error creating file:', err);
+                alert('Error creating file: ' + err.message);
+            }
+        }
+
+        async function createLocalFolder(name, parentPath = '') {
+            if (!rootDirHandle) return;
+
+            try {
+                let targetDir = rootDirHandle;
+                if (parentPath) {
+                    const parts = parentPath.split('/');
+                    for (const part of parts) {
+                        targetDir = await targetDir.getDirectoryHandle(part);
+                    }
+                }
+
+                await targetDir.getDirectoryHandle(name, { create: true });
+                await renderLocalFileTree();
+            } catch (err) {
+                console.error('Error creating folder:', err);
+                alert('Error creating folder: ' + err.message);
             const item = getItem(path);
             if (item && item.container[item.name] && item.container[item.name].type === 'file') {
                 currentFile = path;
@@ -618,25 +715,39 @@ Enjoy writing!`
             }
         }
 
-        function deleteItem(path) {
-            const item = getItem(path);
-            if (item) {
-                delete item.container[item.name];
-                saveFileSystem();
-                if (currentFile === path || (currentFile && currentFile.startsWith(path + '/'))) {
-                    currentFile = null;
+        async function deleteLocalItem(path) {
+            if (!rootDirHandle) return;
+
+            try {
+                const parts = path.split('/');
+                const name = parts.pop();
+                let parentDir = rootDirHandle;
+
+                for (const part of parts) {
+                    parentDir = await parentDir.getDirectoryHandle(part);
+                }
+
+                await parentDir.removeEntry(name, { recursive: true });
+
+                if (currentFilePath === path || currentFilePath?.startsWith(path + '/')) {
+                    currentFileHandle = null;
+                    currentFilePath = null;
                     editor.value = '';
                     currentFileNameEl.textContent = 'No file selected';
                 }
-                renderFileTree();
+
+                await renderLocalFileTree();
+            } catch (err) {
+                console.error('Error deleting:', err);
+                alert('Error deleting: ' + err.message);
             }
         }
 
         // Context Menu
-        function showContextMenu(e, path, type) {
+        function showContextMenu(e, path, type, handle = null) {
             e.preventDefault();
             e.stopPropagation();
-            contextMenuTarget = { path, type };
+            contextMenuTarget = { path, type, handle };
 
             contextMenu.style.left = e.clientX + 'px';
             contextMenu.style.top = e.clientY + 'px';
@@ -659,57 +770,54 @@ Enjoy writing!`
             if (!contextMenuTarget) return;
             hideContextMenu();
 
-            const { path, type } = contextMenuTarget;
-            const item = getItem(path);
-            if (!item) return;
+            const { path } = contextMenuTarget;
+            const name = path.split('/').pop();
 
             modalAction = 'rename';
-            modalType = type;
             modalTitle.textContent = 'Rename';
-            modalInput.value = item.name;
+            modalInput.value = name;
             modalInput.placeholder = 'Enter new name...';
             modal.classList.add('show');
             modalInput.focus();
             modalInput.select();
         }
 
-        function duplicateItem() {
-            if (!contextMenuTarget) return;
+        async function duplicateItem() {
+            if (!contextMenuTarget || !useLocalFS) return;
             hideContextMenu();
 
-            const { path, type } = contextMenuTarget;
-            const item = getItem(path);
-            if (!item || !item.container[item.name]) return;
-
-            const original = item.container[item.name];
-            let newName = item.name;
-
-            // Generate unique name
-            if (type === 'file') {
-                const ext = newName.includes('.') ? '.' + newName.split('.').pop() : '';
-                const baseName = ext ? newName.slice(0, -ext.length) : newName;
-                let counter = 1;
-                while (item.container[newName]) {
-                    newName = `${baseName} (${counter})${ext}`;
-                    counter++;
-                }
-            } else {
-                let counter = 1;
-                while (item.container[newName]) {
-                    newName = `${item.name} (${counter})`;
-                    counter++;
-                }
+            const { path, type, handle } = contextMenuTarget;
+            if (type !== 'file') {
+                alert('Folder duplication is not supported yet');
+                return;
             }
 
-            // Deep copy the item
-            item.container[newName] = JSON.parse(JSON.stringify(original));
-            saveFileSystem();
-            renderFileTree();
-
-            if (type === 'file') {
+            try {
+                const file = await handle.getFile();
+                const content = await file.text();
+                const name = path.split('/').pop();
+                const ext = name.includes('.') ? '.' + name.split('.').pop() : '';
+                const baseName = ext ? name.slice(0, -ext.length) : name;
                 const parentPath = path.includes('/') ? path.substring(0, path.lastIndexOf('/')) : '';
-                const newPath = parentPath ? `${parentPath}/${newName}` : newName;
-                openFile(newPath);
+
+                let newName = `${baseName} (copy)${ext}`;
+                await createLocalFile(newName, parentPath);
+
+                // Write content to new file
+                let targetDir = rootDirHandle;
+                if (parentPath) {
+                    for (const part of parentPath.split('/')) {
+                        targetDir = await targetDir.getDirectoryHandle(part);
+                    }
+                }
+                const newHandle = await targetDir.getFileHandle(newName);
+                const writable = await newHandle.createWritable();
+                await writable.write(content);
+                await writable.close();
+
+                await renderLocalFileTree();
+            } catch (err) {
+                console.error('Error duplicating:', err);
             }
         }
 
@@ -719,7 +827,9 @@ Enjoy writing!`
 
             const { path } = contextMenuTarget;
             if (confirm(`Delete "${path}"?`)) {
-                deleteItem(path);
+                if (useLocalFS) {
+                    deleteLocalItem(path);
+                }
             }
         }
 
@@ -739,12 +849,12 @@ Enjoy writing!`
             modalAction = 'create';
         }
 
-        function confirmModal() {
+        async function confirmModal() {
             let name = modalInput.value.trim();
             if (!name) return;
 
             if (modalAction === 'rename') {
-                confirmRename(name);
+                await confirmRename(name);
                 return;
             }
 
@@ -752,65 +862,26 @@ Enjoy writing!`
                 name += '.md';
             }
 
-            if (fileSystem[name]) {
-                alert('Item already exists');
-                return;
-            }
-
-            if (modalType === 'file') {
-                fileSystem[name] = { type: 'file', content: '' };
-                saveFileSystem();
-                renderFileTree();
-                openFile(name);
-            } else {
-                fileSystem[name] = { type: 'folder', children: {} };
-                saveFileSystem();
-                renderFileTree();
+            if (useLocalFS) {
+                if (modalType === 'file') {
+                    await createLocalFile(name);
+                } else {
+                    await createLocalFolder(name);
+                }
             }
 
             hideModal();
         }
 
-        function confirmRename(newName) {
+        async function confirmRename(newName) {
             if (!contextMenuTarget) {
                 hideModal();
                 return;
             }
 
-            const { path, type } = contextMenuTarget;
-            const item = getItem(path);
-            if (!item) {
-                hideModal();
-                return;
-            }
-
-            if (type === 'file' && !newName.includes('.')) {
-                newName += '.md';
-            }
-
-            if (newName === item.name) {
-                hideModal();
-                return;
-            }
-
-            if (item.container[newName]) {
-                alert('Item already exists');
-                return;
-            }
-
-            // Move item to new name
-            item.container[newName] = item.container[item.name];
-            delete item.container[item.name];
-            saveFileSystem();
-
-            // Update currentFile if renamed
-            if (currentFile === path) {
-                const parentPath = path.includes('/') ? path.substring(0, path.lastIndexOf('/')) : '';
-                currentFile = parentPath ? `${parentPath}/${newName}` : newName;
-                currentFileNameEl.textContent = currentFile;
-            }
-
-            renderFileTree();
+            // Note: File System Access API doesn't support rename directly
+            // Would need to copy and delete
+            alert('Rename is not fully supported yet. Please create a new file and copy the content.');
             hideModal();
         }
 
@@ -819,25 +890,23 @@ Enjoy writing!`
             if (e.key === 'Escape') hideModal();
         });
 
-        // Auto-save
-        // Auto-save and live preview update
+        // Auto-save and live preview
+        let saveTimeout = null;
         editor.addEventListener('input', () => {
-            if (currentFile) {
-                const item = getItem(currentFile);
-                if (item && item.container[item.name]) {
-                    item.container[item.name].content = editor.value;
-                    saveFileSystem();
-                }
-            }
-            // Update preview in split mode
-            if (editorContainer.classList.contains('split')) {
-                preview.innerHTML = parseMarkdown(editor.value);
+            updatePreview();
+
+            // Debounced auto-save for local files
+            if (useLocalFS && currentFileHandle) {
+                clearTimeout(saveTimeout);
+                saveTimeout = setTimeout(saveCurrentFile, 1000);
             }
         });
 
-        // Copy to clipboard
-        const copyBtn = document.getElementById('copyBtn');
+        function updatePreview() {
+            preview.innerHTML = parseMarkdown(editor.value);
+        }
 
+        // Copy to clipboard
         function copyToClipboard() {
             const text = editor.value;
             if (!text) return;
@@ -850,7 +919,6 @@ Enjoy writing!`
                     copyBtn.classList.remove('copied');
                 }, 2000);
             }).catch(err => {
-                // Fallback for older browsers
                 const textarea = document.createElement('textarea');
                 textarea.value = text;
                 document.body.appendChild(textarea);
@@ -886,6 +954,18 @@ Enjoy writing!`
             currentMode = mode;
             editBtn.classList.remove('active');
             previewBtn.classList.remove('active');
+            editorContainer.classList.remove('edit-only', 'preview-only');
+
+            if (mode === 'edit') {
+                editorContainer.classList.add('edit-only');
+                editBtn.classList.add('active');
+            } else if (mode === 'preview') {
+                editorContainer.classList.add('preview-only');
+                previewBtn.classList.add('active');
+                updatePreview();
+            } else {
+                splitBtn.classList.add('active');
+                updatePreview();
 
             if (mode === 'edit') {
                 editBtn.classList.add('active');
@@ -947,7 +1027,6 @@ Enjoy writing!`
                     continue;
                 }
 
-                // Unordered list with nesting support
                 if (/^(\t|  )*- /.test(line)) {
                     result.push(parseList(lines, i, 'ul'));
                     while (i < lines.length && /^(\t|  )*- /.test(lines[i])) {
@@ -956,7 +1035,6 @@ Enjoy writing!`
                     continue;
                 }
 
-                // Ordered list with nesting support
                 if (/^(\t|  )*\d+\. /.test(line)) {
                     result.push(parseList(lines, i, 'ol'));
                     while (i < lines.length && /^(\t|  )*\d+\. /.test(lines[i])) {
@@ -1005,7 +1083,6 @@ Enjoy writing!`
                 const match = line.match(/^(\t|  )*/);
                 if (!match) return 0;
                 const indent = match[0];
-                // Count tabs as 1, every 2 spaces as 1
                 return (indent.match(/\t/g) || []).length + Math.floor((indent.match(/  /g) || []).length);
             };
 
@@ -1035,7 +1112,6 @@ Enjoy writing!`
 
                 if (indent === currentIndent) {
                     result += '<li>' + formatLine(getContent(line));
-                    // Check if next line is deeper nested
                     if (i + 1 < lines.length && isListItem(lines[i + 1]) && getIndentLevel(lines[i + 1]) > indent) {
                         i++;
                         const nestedResult = parseListNested(lines, i, listType, indent + 1);
@@ -1046,10 +1122,8 @@ Enjoy writing!`
                     }
                     result += '</li>';
                 } else if (indent > currentIndent) {
-                    // Deeper nesting handled above
                     i++;
                 } else {
-                    // Less indent, end this list level
                     break;
                 }
             }
@@ -1091,7 +1165,6 @@ Enjoy writing!`
 
                 if (indent === expectedIndent) {
                     result += '<li>' + formatLine(getContent(line));
-                    // Check if next line is deeper nested
                     if (i + 1 < lines.length && isListItem(lines[i + 1]) && getIndentLevel(lines[i + 1]) > indent) {
                         i++;
                         const nestedResult = parseListNested(lines, i, listType, indent + 1);
@@ -1126,7 +1199,8 @@ Enjoy writing!`
             return text;
         }
 
-        init();
+        // Initialize - Split view is default
+        updatePreview();
     </script>
 </body>
 </html>
