@@ -352,6 +352,35 @@
             background-color: #3d3d3d;
             margin: 5px 0;
         }
+
+        /* Copy button */
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .copy-btn {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            background-color: white;
+            color: #666;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s ease;
+        }
+
+        .copy-btn:hover {
+            background-color: #f0f0f0;
+            border-color: #ccc;
+        }
+
+        .copy-btn.copied {
+            background-color: #27ae60;
+            border-color: #27ae60;
+            color: white;
+        }
     </style>
 </head>
 <body>
@@ -370,10 +399,13 @@
     <div class="main-content">
         <header>
             <span class="file-name" id="currentFileName">No file selected</span>
-            <div class="mode-toggle">
-                <button class="mode-btn active" id="editBtn" onclick="switchMode('edit')">Edit</button>
-                <button class="mode-btn" id="splitBtn" onclick="switchMode('split')">Split</button>
-                <button class="mode-btn" id="previewBtn" onclick="switchMode('preview')">Preview</button>
+            <div class="header-actions">
+                <button class="copy-btn" id="copyBtn" onclick="copyToClipboard()">Copy</button>
+                <div class="mode-toggle">
+                    <button class="mode-btn active" id="editBtn" onclick="switchMode('edit')">Edit</button>
+                    <button class="mode-btn" id="splitBtn" onclick="switchMode('split')">Split</button>
+                    <button class="mode-btn" id="previewBtn" onclick="switchMode('preview')">Preview</button>
+                </div>
             </div>
         </header>
 
@@ -779,6 +811,37 @@ Enjoy writing!`
                 preview.innerHTML = parseMarkdown(editor.value);
             }
         });
+
+        // Copy to clipboard
+        const copyBtn = document.getElementById('copyBtn');
+
+        function copyToClipboard() {
+            const text = editor.value;
+            if (!text) return;
+
+            navigator.clipboard.writeText(text).then(() => {
+                copyBtn.textContent = 'Copied!';
+                copyBtn.classList.add('copied');
+                setTimeout(() => {
+                    copyBtn.textContent = 'Copy';
+                    copyBtn.classList.remove('copied');
+                }, 2000);
+            }).catch(err => {
+                // Fallback for older browsers
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                copyBtn.textContent = 'Copied!';
+                copyBtn.classList.add('copied');
+                setTimeout(() => {
+                    copyBtn.textContent = 'Copy';
+                    copyBtn.classList.remove('copied');
+                }, 2000);
+            });
+        }
 
         // Tab key support
         editor.addEventListener('keydown', (e) => {
