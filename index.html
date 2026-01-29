@@ -156,10 +156,29 @@
             border-bottom: 1px solid #e0e0e0;
         }
 
+        .file-info {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
         .file-name {
             color: #333;
             font-size: 16px;
             font-weight: 500;
+        }
+
+        .file-timestamps {
+            display: flex;
+            gap: 16px;
+            font-size: 12px;
+            color: #888;
+        }
+
+        .file-timestamps span {
+            display: flex;
+            align-items: center;
+            gap: 4px;
         }
 
         .mode-toggle {
@@ -419,7 +438,10 @@
 
     <div class="main-content">
         <header>
-            <span class="file-name" id="currentFileName">No file selected</span>
+            <div class="file-info">
+                <span class="file-name" id="currentFileName">No file selected</span>
+                <div class="file-timestamps" id="fileTimestamps"></div>
+            </div>
             <div class="header-actions">
                 <button class="copy-btn" id="copyBtn" onclick="copyToClipboard()">Copy</button>
                 <div class="mode-toggle">
@@ -496,6 +518,7 @@
         function init() {
             loadFileSystem();
             if (Object.keys(fileSystem).length === 0) {
+                const now = Date.now();
                 fileSystem = {
                     'Welcome.md': {
                         type: 'file',
@@ -516,7 +539,9 @@ This is a simple markdown editor with **edit** and **preview** modes.
 3. Click on a file to edit it
 4. Use Edit/Preview to toggle modes
 
-Enjoy writing!`
+Enjoy writing!`,
+                        createdAt: now,
+                        updatedAt: now
                     }
                 };
                 saveFileSystem();
@@ -613,9 +638,33 @@ Enjoy writing!`
                 currentFile = path;
                 editor.value = item.container[item.name].content || '';
                 currentFileNameEl.textContent = path;
+                updateTimestampDisplay(item.container[item.name]);
                 updateView();
                 renderFileTree();
             }
+        }
+
+        function formatTimestamp(timestamp) {
+            if (!timestamp) return '';
+            const date = new Date(timestamp);
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            return `${year}/${month}/${day} ${hours}:${minutes}`;
+        }
+
+        function updateTimestampDisplay(fileData) {
+            const timestampsEl = document.getElementById('fileTimestamps');
+            if (!fileData || !fileData.createdAt) {
+                timestampsEl.innerHTML = '';
+                return;
+            }
+            timestampsEl.innerHTML = `
+                <span>作成: ${formatTimestamp(fileData.createdAt)}</span>
+                <span>更新: ${formatTimestamp(fileData.updatedAt)}</span>
+            `;
         }
 
         function deleteItem(path) {
@@ -627,6 +676,7 @@ Enjoy writing!`
                     currentFile = null;
                     editor.value = '';
                     currentFileNameEl.textContent = 'No file selected';
+                    updateTimestampDisplay(null);
                 }
                 renderFileTree();
             }
@@ -757,13 +807,14 @@ Enjoy writing!`
                 return;
             }
 
+            const now = Date.now();
             if (modalType === 'file') {
-                fileSystem[name] = { type: 'file', content: '' };
+                fileSystem[name] = { type: 'file', content: '', createdAt: now, updatedAt: now };
                 saveFileSystem();
                 renderFileTree();
                 openFile(name);
             } else {
-                fileSystem[name] = { type: 'folder', children: {} };
+                fileSystem[name] = { type: 'folder', children: {}, createdAt: now };
                 saveFileSystem();
                 renderFileTree();
             }
@@ -819,14 +870,15 @@ Enjoy writing!`
             if (e.key === 'Escape') hideModal();
         });
 
-        // Auto-save
         // Auto-save and live preview update
         editor.addEventListener('input', () => {
             if (currentFile) {
                 const item = getItem(currentFile);
                 if (item && item.container[item.name]) {
                     item.container[item.name].content = editor.value;
+                    item.container[item.name].updatedAt = Date.now();
                     saveFileSystem();
+                    updateTimestampDisplay(item.container[item.name]);
                 }
             }
             // Update preview in split mode
