@@ -4,7 +4,49 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Markdown Editor</title>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
     <style>
+        :root {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f5f5f5;
+            --bg-sidebar: #2d2d2d;
+            --bg-sidebar-header: #252525;
+            --bg-hover: #f0f0f0;
+            --bg-active: #4a90d9;
+            --bg-code: #f4f4f4;
+            --text-primary: #333333;
+            --text-secondary: #666666;
+            --text-muted: #888888;
+            --text-sidebar: #cccccc;
+            --border-color: #e0e0e0;
+            --border-sidebar: #3d3d3d;
+            --editor-bg: #ffffff;
+            --toggle-bg: #e0e0e0;
+        }
+
+        [data-theme="dark"] {
+            --bg-primary: #1e1e1e;
+            --bg-secondary: #252525;
+            --bg-sidebar: #1a1a1a;
+            --bg-sidebar-header: #151515;
+            --bg-hover: #333333;
+            --bg-active: #4a90d9;
+            --bg-code: #2d2d2d;
+            --text-primary: #e0e0e0;
+            --text-secondary: #b0b0b0;
+            --text-muted: #888888;
+            --text-sidebar: #cccccc;
+            --border-color: #3d3d3d;
+            --border-sidebar: #333333;
+            --editor-bg: #1e1e1e;
+            --toggle-bg: #3d3d3d;
+        }
+
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            font-size: 20px;
+            vertical-align: middle;
+        }
         * {
             margin: 0;
             padding: 0;
@@ -13,20 +55,22 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background-color: #f5f5f5;
+            background-color: var(--bg-secondary);
+            color: var(--text-primary);
             height: 100vh;
             display: flex;
+            transition: background-color 0.3s ease, color 0.3s ease;
         }
 
         /* Sidebar */
         .sidebar {
             width: 250px;
-            background-color: #2d2d2d;
-            color: #ccc;
+            background-color: var(--bg-sidebar);
+            color: var(--text-sidebar);
             display: flex;
             flex-direction: column;
             flex-shrink: 0;
-            transition: width 0.2s ease;
+            transition: width 0.2s ease, background-color 0.3s ease;
         }
 
         .sidebar.collapsed {
@@ -39,23 +83,22 @@
             left: 250px;
             top: 50%;
             transform: translateY(-50%);
-            width: 20px;
+            width: 24px;
             height: 60px;
-            background-color: #2d2d2d;
+            background-color: var(--bg-sidebar);
             border: none;
             border-radius: 0 6px 6px 0;
-            color: #ccc;
+            color: var(--text-sidebar);
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 12px;
             z-index: 100;
-            transition: left 0.2s ease;
+            transition: left 0.2s ease, background-color 0.3s ease;
         }
 
         .sidebar-toggle:hover {
-            background-color: #3d3d3d;
+            background-color: var(--bg-hover);
         }
 
         .sidebar.collapsed + .sidebar-toggle {
@@ -64,8 +107,8 @@
 
         .sidebar-header {
             padding: 15px;
-            background-color: #252525;
-            border-bottom: 1px solid #3d3d3d;
+            background-color: var(--bg-sidebar-header);
+            border-bottom: 1px solid var(--border-sidebar);
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -84,15 +127,17 @@
         .sidebar-btn {
             background: none;
             border: none;
-            color: #ccc;
+            color: var(--text-sidebar);
             cursor: pointer;
-            padding: 5px 8px;
+            padding: 6px;
             border-radius: 4px;
-            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .sidebar-btn:hover {
-            background-color: #3d3d3d;
+            background-color: var(--border-sidebar);
         }
 
         .file-tree {
@@ -111,11 +156,11 @@
         }
 
         .tree-item:hover {
-            background-color: #3d3d3d;
+            background-color: var(--border-sidebar);
         }
 
         .tree-item.active {
-            background-color: #094771;
+            background-color: var(--bg-active);
             color: white;
         }
 
@@ -152,8 +197,9 @@
             justify-content: space-between;
             align-items: center;
             padding: 15px 20px;
-            background-color: white;
-            border-bottom: 1px solid #e0e0e0;
+            background-color: var(--bg-primary);
+            border-bottom: 1px solid var(--border-color);
+            transition: background-color 0.3s ease;
         }
 
         .file-info {
@@ -163,7 +209,7 @@
         }
 
         .file-name {
-            color: #333;
+            color: var(--text-primary);
             font-size: 16px;
             font-weight: 500;
         }
@@ -172,7 +218,7 @@
             display: flex;
             gap: 16px;
             font-size: 12px;
-            color: #888;
+            color: var(--text-muted);
         }
 
         .file-timestamps span {
@@ -189,7 +235,7 @@
 
         .toggle-group {
             display: flex;
-            background-color: #e0e0e0;
+            background-color: var(--toggle-bg);
             border-radius: 6px;
             padding: 2px;
         }
@@ -215,15 +261,15 @@
 
         .mode-btn:not(.active) {
             background-color: transparent;
-            color: #666;
+            color: var(--text-secondary);
         }
 
         .mode-btn:hover:not(.active) {
-            background-color: rgba(0, 0, 0, 0.1);
+            background-color: rgba(128, 128, 128, 0.2);
         }
 
         .split-btn {
-            background-color: #e0e0e0;
+            background-color: var(--toggle-bg);
         }
 
         .split-btn.active {
@@ -233,10 +279,11 @@
 
         .editor-container {
             flex: 1;
-            background-color: white;
+            background-color: var(--editor-bg);
             overflow: hidden;
             display: flex;
             flex-direction: column;
+            transition: background-color 0.3s ease;
         }
 
         .editor-container.split {
@@ -254,11 +301,14 @@
             resize: none;
             outline: none;
             tab-size: 4;
+            background-color: var(--editor-bg);
+            color: var(--text-primary);
+            transition: background-color 0.3s ease, color 0.3s ease;
         }
 
         .editor-container.split #editor {
             width: 50%;
-            border-right: 1px solid #e0e0e0;
+            border-right: 1px solid var(--border-color);
         }
 
         #preview {
@@ -267,24 +317,27 @@
             line-height: 1.8;
             display: none;
             overflow-y: auto;
+            color: var(--text-primary);
+            background-color: var(--editor-bg);
+            transition: background-color 0.3s ease, color 0.3s ease;
         }
 
-        #preview h1 { font-size: 2em; margin: 0.67em 0; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
-        #preview h2 { font-size: 1.5em; margin: 0.75em 0; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
+        #preview h1 { font-size: 2em; margin: 0.67em 0; border-bottom: 1px solid var(--border-color); padding-bottom: 0.3em; }
+        #preview h2 { font-size: 1.5em; margin: 0.75em 0; border-bottom: 1px solid var(--border-color); padding-bottom: 0.3em; }
         #preview h3 { font-size: 1.25em; margin: 0.83em 0; }
         #preview h4 { font-size: 1em; margin: 1em 0; }
         #preview h5 { font-size: 0.875em; margin: 1.17em 0; }
-        #preview h6 { font-size: 0.85em; margin: 1.33em 0; color: #666; }
+        #preview h6 { font-size: 0.85em; margin: 1.33em 0; color: var(--text-secondary); }
         #preview p { margin: 1em 0; }
-        #preview code { background-color: #f4f4f4; padding: 2px 6px; border-radius: 4px; font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace; font-size: 0.9em; }
-        #preview pre { background-color: #f4f4f4; padding: 16px; border-radius: 6px; overflow-x: auto; margin: 1em 0; }
+        #preview code { background-color: var(--bg-code); padding: 2px 6px; border-radius: 4px; font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace; font-size: 0.9em; }
+        #preview pre { background-color: var(--bg-code); padding: 16px; border-radius: 6px; overflow-x: auto; margin: 1em 0; }
         #preview pre code { padding: 0; background: none; }
-        #preview blockquote { border-left: 4px solid #ddd; padding-left: 16px; margin: 1em 0; color: #666; }
+        #preview blockquote { border-left: 4px solid var(--border-color); padding-left: 16px; margin: 1em 0; color: var(--text-secondary); }
         #preview ul, #preview ol { margin: 1em 0; padding-left: 2em; }
         #preview li { margin: 0.5em 0; }
         #preview a { color: #4a90d9; text-decoration: none; }
         #preview a:hover { text-decoration: underline; }
-        #preview hr { border: none; border-top: 2px solid #eee; margin: 2em 0; }
+        #preview hr { border: none; border-top: 2px solid var(--border-color); margin: 2em 0; }
 
         .hidden { display: none !important; }
 
@@ -307,7 +360,7 @@
         }
 
         .modal-content {
-            background: white;
+            background: var(--bg-primary);
             padding: 20px;
             border-radius: 8px;
             min-width: 300px;
@@ -315,16 +368,18 @@
 
         .modal-content h3 {
             margin-bottom: 15px;
-            color: #333;
+            color: var(--text-primary);
         }
 
         .modal-content input {
             width: 100%;
             padding: 10px;
-            border: 1px solid #ddd;
+            border: 1px solid var(--border-color);
             border-radius: 4px;
             font-size: 14px;
             margin-bottom: 15px;
+            background-color: var(--editor-bg);
+            color: var(--text-primary);
         }
 
         .modal-actions {
@@ -347,16 +402,16 @@
         }
 
         .modal-btn.secondary {
-            background-color: #e0e0e0;
-            color: #333;
+            background-color: var(--toggle-bg);
+            color: var(--text-primary);
         }
 
         /* Context Menu */
         .context-menu {
             display: none;
             position: fixed;
-            background: #2d2d2d;
-            border: 1px solid #3d3d3d;
+            background: var(--bg-sidebar);
+            border: 1px solid var(--border-sidebar);
             border-radius: 6px;
             padding: 5px 0;
             min-width: 150px;
@@ -370,7 +425,7 @@
 
         .context-menu-item {
             padding: 8px 15px;
-            color: #ccc;
+            color: var(--text-sidebar);
             font-size: 13px;
             cursor: pointer;
             display: flex;
@@ -379,7 +434,7 @@
         }
 
         .context-menu-item:hover {
-            background-color: #094771;
+            background-color: var(--bg-active);
             color: white;
         }
 
@@ -389,7 +444,7 @@
 
         .context-menu-separator {
             height: 1px;
-            background-color: #3d3d3d;
+            background-color: var(--border-sidebar);
             margin: 5px 0;
         }
 
@@ -400,26 +455,45 @@
             gap: 15px;
         }
 
-        .copy-btn {
-            padding: 8px 12px;
-            border: 1px solid #ddd;
+        .icon-btn {
+            padding: 8px;
+            border: 1px solid var(--border-color);
             border-radius: 6px;
-            background-color: white;
-            color: #666;
+            background-color: var(--bg-primary);
+            color: var(--text-secondary);
             cursor: pointer;
-            font-size: 13px;
             transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
-        .copy-btn:hover {
-            background-color: #f0f0f0;
-            border-color: #ccc;
+        .icon-btn:hover {
+            background-color: var(--bg-hover);
+            border-color: var(--text-muted);
         }
 
-        .copy-btn.copied {
+        .icon-btn.copied {
             background-color: #27ae60;
             border-color: #27ae60;
             color: white;
+        }
+
+        .theme-toggle {
+            padding: 8px;
+            border: none;
+            border-radius: 6px;
+            background-color: var(--toggle-bg);
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .theme-toggle:hover {
+            background-color: var(--bg-hover);
         }
     </style>
 </head>
@@ -428,13 +502,19 @@
         <div class="sidebar-header">
             <h2>Files</h2>
             <div class="sidebar-actions">
-                <button class="sidebar-btn" onclick="showModal('file')" title="New File">+File</button>
-                <button class="sidebar-btn" onclick="showModal('folder')" title="New Folder">+Folder</button>
+                <button class="sidebar-btn" onclick="showModal('file')" title="New File">
+                    <span class="material-symbols-outlined">note_add</span>
+                </button>
+                <button class="sidebar-btn" onclick="showModal('folder')" title="New Folder">
+                    <span class="material-symbols-outlined">create_new_folder</span>
+                </button>
             </div>
         </div>
         <div class="file-tree" id="fileTree"></div>
     </div>
-    <button class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()" title="Toggle Sidebar">&#9664;</button>
+    <button class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()" title="Toggle Sidebar">
+        <span class="material-symbols-outlined" id="sidebarToggleIcon">chevron_left</span>
+    </button>
 
     <div class="main-content">
         <header>
@@ -443,7 +523,12 @@
                 <div class="file-timestamps" id="fileTimestamps"></div>
             </div>
             <div class="header-actions">
-                <button class="copy-btn" id="copyBtn" onclick="copyToClipboard()">Copy</button>
+                <button class="icon-btn" id="copyBtn" onclick="copyToClipboard()" title="Copy">
+                    <span class="material-symbols-outlined" id="copyIcon">content_copy</span>
+                </button>
+                <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Toggle Dark Mode">
+                    <span class="material-symbols-outlined" id="themeIcon">dark_mode</span>
+                </button>
                 <div class="mode-toggle">
                     <div class="toggle-group">
                         <button class="mode-btn active" id="editBtn" onclick="switchMode('edit')">Edit</button>
@@ -462,10 +547,16 @@
 
     <!-- Context Menu -->
     <div class="context-menu" id="contextMenu">
-        <div class="context-menu-item" onclick="renameItem()">Rename</div>
-        <div class="context-menu-item" onclick="duplicateItem()">Duplicate</div>
+        <div class="context-menu-item" onclick="renameItem()">
+            <span class="material-symbols-outlined">edit</span>Rename
+        </div>
+        <div class="context-menu-item" onclick="duplicateItem()">
+            <span class="material-symbols-outlined">content_copy</span>Duplicate
+        </div>
         <div class="context-menu-separator"></div>
-        <div class="context-menu-item danger" onclick="deleteItemFromMenu()">Delete</div>
+        <div class="context-menu-item danger" onclick="deleteItemFromMenu()">
+            <span class="material-symbols-outlined">delete</span>Delete
+        </div>
     </div>
 
     <!-- Modal -->
@@ -505,17 +596,44 @@
         // Sidebar Toggle
         function toggleSidebar() {
             sidebar.classList.toggle('collapsed');
+            const icon = document.getElementById('sidebarToggleIcon');
             if (sidebar.classList.contains('collapsed')) {
-                sidebarToggle.innerHTML = '&#9654;';
+                icon.textContent = 'chevron_right';
                 sidebarToggle.title = 'Show Sidebar';
             } else {
-                sidebarToggle.innerHTML = '&#9664;';
+                icon.textContent = 'chevron_left';
                 sidebarToggle.title = 'Hide Sidebar';
             }
         }
 
+        // Theme Toggle
+        function loadTheme() {
+            const savedTheme = localStorage.getItem('markdownEditorTheme');
+            if (savedTheme) {
+                document.documentElement.setAttribute('data-theme', savedTheme);
+                updateThemeIcon(savedTheme);
+            } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.documentElement.setAttribute('data-theme', 'dark');
+                updateThemeIcon('dark');
+            }
+        }
+
+        function toggleTheme() {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', newTheme === 'light' ? '' : newTheme);
+            localStorage.setItem('markdownEditorTheme', newTheme);
+            updateThemeIcon(newTheme);
+        }
+
+        function updateThemeIcon(theme) {
+            const icon = document.getElementById('themeIcon');
+            icon.textContent = theme === 'dark' ? 'light_mode' : 'dark_mode';
+        }
+
         // Initialize
         function init() {
+            loadTheme();
             loadFileSystem();
             if (Object.keys(fileSystem).length === 0) {
                 const now = Date.now();
@@ -580,8 +698,9 @@ Enjoy writing!`,
                 div.className = `tree-item ${item.type}${currentFile === fullPath ? ' active' : ''}`;
                 div.dataset.path = fullPath;
                 div.dataset.type = item.type;
+                const iconName = item.type === 'folder' ? 'folder' : 'description';
                 div.innerHTML = `
-                    <span class="icon">${item.type === 'folder' ? '&#128193;' : '&#128196;'}</span>
+                    <span class="material-symbols-outlined icon">${iconName}</span>
                     <span class="name">${name}</span>
                 `;
 
@@ -894,11 +1013,12 @@ Enjoy writing!`,
             const text = editor.value;
             if (!text) return;
 
+            const copyIcon = document.getElementById('copyIcon');
             navigator.clipboard.writeText(text).then(() => {
-                copyBtn.textContent = 'Copied!';
+                copyIcon.textContent = 'check';
                 copyBtn.classList.add('copied');
                 setTimeout(() => {
-                    copyBtn.textContent = 'Copy';
+                    copyIcon.textContent = 'content_copy';
                     copyBtn.classList.remove('copied');
                 }, 2000);
             }).catch(err => {
@@ -909,10 +1029,10 @@ Enjoy writing!`,
                 textarea.select();
                 document.execCommand('copy');
                 document.body.removeChild(textarea);
-                copyBtn.textContent = 'Copied!';
+                copyIcon.textContent = 'check';
                 copyBtn.classList.add('copied');
                 setTimeout(() => {
-                    copyBtn.textContent = 'Copy';
+                    copyIcon.textContent = 'content_copy';
                     copyBtn.classList.remove('copied');
                 }, 2000);
             });
