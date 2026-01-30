@@ -591,7 +591,7 @@
     </div>
 
     <!-- Context Menu -->
-    <div class="context-menu" id="contextMenu">
+    <div class="context-menu" id="contextMenu" onclick="event.stopPropagation()">
         <div class="context-menu-item" onclick="renameItem()">
             <span class="material-symbols-outlined">edit</span>Rename
         </div>
