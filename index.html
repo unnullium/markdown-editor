@@ -500,6 +500,46 @@
         .theme-toggle:hover {
             background-color: var(--bg-hover);
         }
+
+        /* Code block copy button */
+        .code-block-wrapper {
+            position: relative;
+        }
+
+        .code-copy-btn {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            padding: 4px 8px;
+            border: none;
+            border-radius: 4px;
+            background-color: var(--toggle-bg);
+            color: var(--text-secondary);
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.2s ease, background-color 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 12px;
+        }
+
+        .code-block-wrapper:hover .code-copy-btn {
+            opacity: 1;
+        }
+
+        .code-copy-btn:hover {
+            background-color: var(--bg-hover);
+        }
+
+        .code-copy-btn.copied {
+            background-color: #27ae60;
+            color: white;
+        }
+
+        .code-copy-btn .material-symbols-outlined {
+            font-size: 16px;
+        }
     </style>
 </head>
 <body>
@@ -1055,6 +1095,36 @@ Enjoy writing!`,
             });
         }
 
+        // Copy code block content
+        function copyCodeBlock(button) {
+            const codeBlock = button.parentElement.querySelector('code');
+            const text = codeBlock.textContent;
+            const icon = button.querySelector('.material-symbols-outlined');
+
+            navigator.clipboard.writeText(text).then(() => {
+                icon.textContent = 'check';
+                button.classList.add('copied');
+                setTimeout(() => {
+                    icon.textContent = 'content_copy';
+                    button.classList.remove('copied');
+                }, 2000);
+            }).catch(err => {
+                // Fallback for older browsers
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                icon.textContent = 'check';
+                button.classList.add('copied');
+                setTimeout(() => {
+                    icon.textContent = 'content_copy';
+                    button.classList.remove('copied');
+                }, 2000);
+            });
+        }
+
         // Tab key support
         editor.addEventListener('keydown', (e) => {
             if (e.key === 'Tab') {
@@ -1141,7 +1211,8 @@ Enjoy writing!`,
                         i++;
                     }
                     const langClass = lang ? ` class="language-${lang}"` : '';
-                    result.push(`<pre><code${langClass}>` + codeLines.join('\n') + '</code></pre>');
+                    const codeContent = codeLines.join('\n');
+                    result.push(`<div class="code-block-wrapper"><button class="code-copy-btn" onclick="copyCodeBlock(this)"><span class="material-symbols-outlined">content_copy</span></button><pre><code${langClass}>${codeContent}</code></pre></div>`);
                     i++;
                     continue;
                 }
