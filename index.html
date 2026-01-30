@@ -905,9 +905,8 @@ Enjoy writing!`,
 
         function renameItem() {
             if (!contextMenuTarget) return;
-            hideContextMenu();
-
             const { path, type } = contextMenuTarget;
+            hideContextMenu();
             const item = getItem(path);
             if (!item) return;
 
@@ -923,9 +922,8 @@ Enjoy writing!`,
 
         function duplicateItem() {
             if (!contextMenuTarget) return;
-            hideContextMenu();
-
             const { path, type } = contextMenuTarget;
+            hideContextMenu();
             const item = getItem(path);
             if (!item || !item.container[item.name]) return;
 
@@ -963,9 +961,8 @@ Enjoy writing!`,
 
         function deleteItemFromMenu() {
             if (!contextMenuTarget) return;
-            hideContextMenu();
-
             const { path } = contextMenuTarget;
+            hideContextMenu();
             if (confirm(`Delete "${path}"?`)) {
                 deleteItem(path);
             }
