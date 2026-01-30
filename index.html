@@ -217,6 +217,27 @@
             color: var(--text-primary);
             font-size: 16px;
             font-weight: 500;
+            background: transparent;
+            border: 1px solid transparent;
+            border-radius: 4px;
+            padding: 4px 8px;
+            margin: -4px -8px;
+            outline: none;
+            font-family: inherit;
+            transition: border-color 0.2s ease, background-color 0.2s ease;
+        }
+
+        .file-name:hover:not(:disabled) {
+            border-color: var(--border-color);
+        }
+
+        .file-name:focus {
+            border-color: #4a90d9;
+            background-color: var(--bg-primary);
+        }
+
+        .file-name:disabled {
+            cursor: default;
         }
 
         .file-timestamps {
@@ -564,7 +585,7 @@
     <div class="main-content">
         <header>
             <div class="file-info">
-                <span class="file-name" id="currentFileName">No file selected</span>
+                <input type="text" class="file-name" id="currentFileName" value="No file selected" disabled>
                 <div class="file-timestamps" id="fileTimestamps"></div>
             </div>
             <div class="header-actions">
@@ -812,7 +833,8 @@ Enjoy writing!`,
             if (item && item.container[item.name] && item.container[item.name].type === 'file') {
                 currentFile = path;
                 editor.value = item.container[item.name].content || '';
-                currentFileNameEl.textContent = path;
+                currentFileNameEl.value = path;
+                currentFileNameEl.disabled = false;
                 updateTimestampDisplay(item.container[item.name]);
                 updateView();
                 renderFileTree();
@@ -850,7 +872,8 @@ Enjoy writing!`,
                 if (currentFile === path || (currentFile && currentFile.startsWith(path + '/'))) {
                     currentFile = null;
                     editor.value = '';
-                    currentFileNameEl.textContent = 'No file selected';
+                    currentFileNameEl.value = 'No file selected';
+                    currentFileNameEl.disabled = true;
                     updateTimestampDisplay(null);
                 }
                 renderFileTree();
@@ -1041,7 +1064,7 @@ Enjoy writing!`,
             if (currentFile === path) {
                 const parentPath = path.includes('/') ? path.substring(0, path.lastIndexOf('/')) : '';
                 currentFile = parentPath ? `${parentPath}/${newName}` : newName;
-                currentFileNameEl.textContent = currentFile;
+                currentFileNameEl.value = currentFile;
             }
 
             renderFileTree();
@@ -1052,6 +1075,61 @@ Enjoy writing!`,
             if (e.key === 'Enter') confirmModal();
             if (e.key === 'Escape') hideModal();
         });
+
+        // File name editing in header
+        currentFileNameEl.addEventListener('blur', () => {
+            renameCurrentFile();
+        });
+
+        currentFileNameEl.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                currentFileNameEl.blur();
+            }
+            if (e.key === 'Escape') {
+                currentFileNameEl.value = currentFile || 'No file selected';
+                currentFileNameEl.blur();
+            }
+        });
+
+        function renameCurrentFile() {
+            if (!currentFile) return;
+
+            let newName = currentFileNameEl.value.trim();
+            if (!newName) {
+                currentFileNameEl.value = currentFile;
+                return;
+            }
+
+            // Add .md extension if missing
+            if (!newName.includes('.')) {
+                newName += '.md';
+                currentFileNameEl.value = newName;
+            }
+
+            // No change
+            if (newName === currentFile) return;
+
+            const item = getItem(currentFile);
+            if (!item) {
+                currentFileNameEl.value = currentFile;
+                return;
+            }
+
+            // Check if name already exists
+            if (item.container[newName]) {
+                alert('File already exists');
+                currentFileNameEl.value = currentFile;
+                return;
+            }
+
+            // Rename the file
+            item.container[newName] = item.container[item.name];
+            delete item.container[item.name];
+            currentFile = newName;
+            saveFileSystem();
+            renderFileTree();
+        }
 
         // Auto-save and live preview update
         editor.addEventListener('input', () => {
