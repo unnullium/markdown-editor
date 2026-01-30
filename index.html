@@ -658,6 +658,7 @@
         let modalType = 'file';
         let modalAction = 'create';
         let contextMenuTarget = null;
+        let renameTarget = null;
 
         // Sidebar Toggle
         function toggleSidebar() {
@@ -910,6 +911,7 @@ Enjoy writing!`,
             const item = getItem(path);
             if (!item) return;
 
+            renameTarget = { path, type };
             modalAction = 'rename';
             modalType = type;
             modalTitle.textContent = 'Rename';
@@ -1000,6 +1002,7 @@ Enjoy writing!`,
         function hideModal() {
             modal.classList.remove('show');
             modalAction = 'create';
+            renameTarget = null;
         }
 
         function confirmModal() {
@@ -1026,12 +1029,12 @@ Enjoy writing!`,
         }
 
         function confirmRename(newName) {
-            if (!contextMenuTarget) {
+            if (!renameTarget) {
                 hideModal();
                 return;
             }
 
-            const { path, type } = contextMenuTarget;
+            const { path, type } = renameTarget;
             const item = getItem(path);
             if (!item) {
                 hideModal();
