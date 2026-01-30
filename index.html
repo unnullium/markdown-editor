@@ -211,6 +211,19 @@
             white-space: nowrap;
         }
 
+        .tree-item.dragging {
+            opacity: 0.5;
+        }
+
+        .tree-item.drag-over {
+            background-color: var(--bg-active);
+            color: white;
+        }
+
+        .file-tree.drag-over-root {
+            background-color: var(--bg-sidebar-hover);
+        }
+
         .folder-children {
             padding-left: 15px;
         }
@@ -798,6 +811,7 @@ Enjoy writing!`,
                 div.className = `tree-item ${item.type}${currentFile === fullPath ? ' active' : ''}`;
                 div.dataset.path = fullPath;
                 div.dataset.type = item.type;
+                div.draggable = true;
                 const iconName = item.type === 'folder' ? 'folder' : 'description';
                 div.innerHTML = `
                     <span class="material-symbols-outlined icon">${iconName}</span>
@@ -811,6 +825,13 @@ Enjoy writing!`,
                 }
 
                 div.oncontextmenu = (e) => showContextMenu(e, fullPath, item.type);
+
+                // Drag and drop events
+                div.ondragstart = (e) => handleDragStart(e, fullPath);
+                div.ondragend = handleDragEnd;
+                div.ondragover = (e) => handleDragOver(e, item.type);
+                div.ondragleave = handleDragLeave;
+                div.ondrop = (e) => handleDrop(e, fullPath, item.type);
 
                 container.appendChild(div);
 
@@ -828,6 +849,117 @@ Enjoy writing!`,
             if (children && children.classList.contains('folder-children')) {
                 children.style.display = children.style.display === 'none' ? 'block' : 'none';
             }
+        }
+
+        // Drag and Drop
+        let draggedPath = null;
+
+        function handleDragStart(e, path) {
+            draggedPath = path;
+            e.target.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', path);
+        }
+
+        function handleDragEnd(e) {
+            e.target.classList.remove('dragging');
+            draggedPath = null;
+            // Remove all drag-over classes
+            document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+            fileTree.classList.remove('drag-over-root');
+        }
+
+        function handleDragOver(e, targetType) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (targetType === 'folder') {
+                e.target.closest('.tree-item').classList.add('drag-over');
+            }
+        }
+
+        function handleDragLeave(e) {
+            e.target.closest('.tree-item')?.classList.remove('drag-over');
+        }
+
+        function handleDrop(e, targetPath, targetType) {
+            e.preventDefault();
+            e.stopPropagation();
+            e.target.closest('.tree-item')?.classList.remove('drag-over');
+
+            if (!draggedPath || targetType !== 'folder') return;
+            if (draggedPath === targetPath) return;
+            // Prevent dropping a folder into itself or its children
+            if (targetPath.startsWith(draggedPath + '/')) return;
+
+            moveItem(draggedPath, targetPath);
+        }
+
+        // Drop to root level (fileTree)
+        fileTree.ondragover = (e) => {
+            e.preventDefault();
+            if (draggedPath && draggedPath.includes('/')) {
+                fileTree.classList.add('drag-over-root');
+            }
+        };
+
+        fileTree.ondragleave = (e) => {
+            if (e.target === fileTree) {
+                fileTree.classList.remove('drag-over-root');
+            }
+        };
+
+        fileTree.ondrop = (e) => {
+            if (e.target !== fileTree) return;
+            e.preventDefault();
+            fileTree.classList.remove('drag-over-root');
+
+            if (!draggedPath) return;
+            // Only allow moving to root if item is in a subfolder
+            if (!draggedPath.includes('/')) return;
+
+            moveItem(draggedPath, '');
+        };
+
+        function moveItem(sourcePath, targetFolderPath) {
+            const sourceItem = getItem(sourcePath);
+            if (!sourceItem) return;
+
+            const itemName = sourceItem.name;
+            const itemData = sourceItem.container[itemName];
+
+            // Get target container
+            let targetContainer;
+            if (targetFolderPath === '') {
+                targetContainer = fileSystem;
+            } else {
+                const targetItem = getItem(targetFolderPath);
+                if (!targetItem || targetItem.container[targetItem.name].type !== 'folder') return;
+                targetContainer = targetItem.container[targetItem.name].children;
+            }
+
+            // Check if item with same name exists in target
+            if (targetContainer[itemName]) {
+                alert('An item with the same name already exists in the destination');
+                return;
+            }
+
+            // Move the item
+            targetContainer[itemName] = itemData;
+            delete sourceItem.container[itemName];
+
+            // Update currentFile if the moved item is currently open
+            if (currentFile === sourcePath) {
+                currentFile = targetFolderPath ? `${targetFolderPath}/${itemName}` : itemName;
+                currentFileNameEl.value = currentFile;
+            } else if (currentFile && currentFile.startsWith(sourcePath + '/')) {
+                // If a file inside a moved folder is open
+                const relativePath = currentFile.substring(sourcePath.length);
+                currentFile = targetFolderPath ? `${targetFolderPath}/${itemName}${relativePath}` : `${itemName}${relativePath}`;
+                currentFileNameEl.value = currentFile;
+            }
+
+            saveFileSystem();
+            renderFileTree();
         }
 
         function getItem(path) {
