@@ -547,7 +547,7 @@
         <div class="sidebar-header">
             <h2>Files</h2>
             <div class="sidebar-actions">
-                <button class="sidebar-btn" onclick="showModal('file')" title="New File">
+                <button class="sidebar-btn" onclick="createUntitledFile()" title="New File">
                     <span class="material-symbols-outlined">note_add</span>
                 </button>
                 <button class="sidebar-btn" onclick="showModal('folder')" title="New Folder">
@@ -948,13 +948,31 @@ Enjoy writing!`,
             }
         }
 
+        // Create untitled file
+        function createUntitledFile() {
+            let baseName = 'Untitled';
+            let name = baseName + '.md';
+            let counter = 1;
+
+            while (fileSystem[name]) {
+                name = `${baseName} (${counter}).md`;
+                counter++;
+            }
+
+            const now = Date.now();
+            fileSystem[name] = { type: 'file', content: '', createdAt: now, updatedAt: now };
+            saveFileSystem();
+            renderFileTree();
+            openFile(name);
+        }
+
         // Modal
         function showModal(type) {
             modalAction = 'create';
             modalType = type;
-            modalTitle.textContent = type === 'file' ? 'New File' : 'New Folder';
+            modalTitle.textContent = 'New Folder';
             modalInput.value = '';
-            modalInput.placeholder = type === 'file' ? 'filename.md' : 'folder name';
+            modalInput.placeholder = 'folder name';
             modal.classList.add('show');
             modalInput.focus();
         }
@@ -973,26 +991,16 @@ Enjoy writing!`,
                 return;
             }
 
-            if (modalType === 'file' && !name.includes('.')) {
-                name += '.md';
-            }
-
+            // Folder creation
             if (fileSystem[name]) {
                 alert('Item already exists');
                 return;
             }
 
             const now = Date.now();
-            if (modalType === 'file') {
-                fileSystem[name] = { type: 'file', content: '', createdAt: now, updatedAt: now };
-                saveFileSystem();
-                renderFileTree();
-                openFile(name);
-            } else {
-                fileSystem[name] = { type: 'folder', children: {}, createdAt: now };
-                saveFileSystem();
-                renderFileTree();
-            }
+            fileSystem[name] = { type: 'folder', children: {}, createdAt: now };
+            saveFileSystem();
+            renderFileTree();
 
             hideModal();
         }
