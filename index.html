@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Markdown Editor</title>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" id="hljs-light">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" id="hljs-dark" disabled>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
     <style>
         :root {
             --bg-primary: #ffffff;
@@ -631,6 +634,17 @@
         function updateThemeIcon(theme) {
             const icon = document.getElementById('themeIcon');
             icon.textContent = theme === 'dark' ? 'light_mode' : 'dark_mode';
+
+            // Switch highlight.js theme
+            const lightTheme = document.getElementById('hljs-light');
+            const darkTheme = document.getElementById('hljs-dark');
+            if (theme === 'dark') {
+                lightTheme.disabled = true;
+                darkTheme.disabled = false;
+            } else {
+                lightTheme.disabled = false;
+                darkTheme.disabled = true;
+            }
         }
 
         // Initialize
@@ -1005,6 +1019,7 @@ Enjoy writing!`,
             // Update preview in split mode
             if (editorContainer.classList.contains('split')) {
                 preview.innerHTML = parseMarkdown(editor.value);
+                highlightCode();
             }
         });
 
@@ -1089,6 +1104,7 @@ Enjoy writing!`,
                 preview.style.display = 'block';
                 preview.innerHTML = parseMarkdown(editor.value);
                 editorContainer.classList.add('split');
+                highlightCode();
             } else if (currentMode === 'edit') {
                 // Edit only
                 editor.classList.remove('hidden');
@@ -1098,7 +1114,14 @@ Enjoy writing!`,
                 editor.classList.add('hidden');
                 preview.style.display = 'block';
                 preview.innerHTML = parseMarkdown(editor.value);
+                highlightCode();
             }
+        }
+
+        function highlightCode() {
+            preview.querySelectorAll('pre code').forEach((block) => {
+                hljs.highlightElement(block);
+            });
         }
 
         function parseMarkdown(text) {
@@ -1110,13 +1133,15 @@ Enjoy writing!`,
                 const line = lines[i];
 
                 if (line.startsWith('```')) {
+                    const lang = line.slice(3).trim();
                     const codeLines = [];
                     i++;
                     while (i < lines.length && !lines[i].startsWith('```')) {
                         codeLines.push(escapeHtml(lines[i]));
                         i++;
                     }
-                    result.push('<pre><code>' + codeLines.join('\n') + '</code></pre>');
+                    const langClass = lang ? ` class="language-${lang}"` : '';
+                    result.push(`<pre><code${langClass}>` + codeLines.join('\n') + '</code></pre>');
                     i++;
                     continue;
                 }
