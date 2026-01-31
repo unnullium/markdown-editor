@@ -79,40 +79,33 @@
         }
 
         .sidebar.collapsed {
-            width: 0;
-            overflow: hidden;
+            width: 48px;
         }
 
-        .sidebar-expand-btn {
-            position: absolute;
-            left: 0;
-            top: 50%;
-            transform: translateY(-50%);
-            width: 24px;
-            height: 60px;
-            background-color: var(--bg-sidebar);
-            border: none;
-            border-radius: 0 6px 6px 0;
-            color: var(--text-sidebar);
-            cursor: pointer;
+        .sidebar.collapsed .sidebar-header h2 {
             display: none;
-            align-items: center;
+        }
+
+        .sidebar.collapsed .sidebar-header {
             justify-content: center;
-            z-index: 100;
-            transition: background-color 0.3s ease;
+            padding: 12px 8px;
         }
 
-        .sidebar-expand-btn:hover {
-            background-color: var(--bg-hover);
+        .sidebar.collapsed .sidebar-new-buttons {
+            padding: 8px 4px;
         }
 
-        .sidebar-expand-btn:focus {
-            outline: 2px solid var(--bg-active);
-            outline-offset: 2px;
+        .sidebar.collapsed .new-item-btn {
+            padding: 8px;
+            justify-content: center;
         }
 
-        .sidebar.collapsed ~ .sidebar-expand-btn {
-            display: flex;
+        .sidebar.collapsed .new-item-btn span:last-child {
+            display: none;
+        }
+
+        .sidebar.collapsed .file-tree {
+            display: none;
         }
 
         .sidebar-header {
@@ -700,9 +693,6 @@
         </div>
         <div class="file-tree" id="fileTree"></div>
     </div>
-    <button class="sidebar-expand-btn" id="sidebarExpandBtn" onclick="toggleSidebar()" title="Expand Sidebar">
-        <span class="material-symbols-outlined">chevron_right</span>
-    </button>
 
     <div class="main-content">
         <header>
@@ -784,6 +774,10 @@
         // Sidebar Toggle
         function toggleSidebar() {
             sidebar.classList.toggle('collapsed');
+            const icon = document.getElementById('sidebarToggleIcon');
+            const isCollapsed = sidebar.classList.contains('collapsed');
+            icon.textContent = isCollapsed ? 'chevron_right' : 'chevron_left';
+            document.getElementById('sidebarToggle').title = isCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar';
         }
 
         // Theme Toggle
