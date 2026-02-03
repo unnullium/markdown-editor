@@ -770,6 +770,7 @@
         let modalAction = 'create';
         let contextMenuTarget = null;
         let renameTarget = null;
+        let expandedFolders = new Set();
 
         // Sidebar Toggle
         function toggleSidebar() {
@@ -920,6 +921,10 @@ Enjoy writing!`,
                 if (item.type === 'folder' && item.children) {
                     const childContainer = document.createElement('div');
                     childContainer.className = 'folder-children';
+                    // Preserve folder expanded/collapsed state
+                    if (!expandedFolders.has(fullPath)) {
+                        childContainer.style.display = 'none';
+                    }
                     container.appendChild(childContainer);
                     renderItems(item.children, childContainer, fullPath);
                 }
@@ -928,8 +933,16 @@ Enjoy writing!`,
 
         function toggleFolder(element) {
             const children = element.nextElementSibling;
+            const folderPath = element.dataset.path;
             if (children && children.classList.contains('folder-children')) {
-                children.style.display = children.style.display === 'none' ? 'block' : 'none';
+                const isExpanding = children.style.display === 'none';
+                children.style.display = isExpanding ? 'block' : 'none';
+                // Track expanded state
+                if (isExpanding) {
+                    expandedFolders.add(folderPath);
+                } else {
+                    expandedFolders.delete(folderPath);
+                }
             }
         }
 
